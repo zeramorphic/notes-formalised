@@ -1,4 +1,5 @@
 import tactic.basic
+import ia.ns.elementary_number_theory
 
 universe u
 
@@ -103,4 +104,7 @@ instance : add_semigroup ℤ := ⟨int.add_assoc⟩
 instance : add_monoid ℤ := ⟨int.zero_add, int.add_zero⟩
 instance : add_group ℤ := ⟨int.add_left_neg, int.add_right_neg⟩
 
--- (iv) TODO: rationals, reals, complex numbers
+-- (iv) (ℚ, +) TODO: reals, complex numbers
+instance : add_semigroup ℚ := ⟨rat.add_assoc⟩
+instance : add_monoid ℚ := ⟨rat.zero_add, rat.add_zero⟩
+instance : add_group ℚ := ⟨rat.add_left_neg, rat.add_right_neg⟩
