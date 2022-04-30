@@ -1,5 +1,5 @@
 import tactic.basic
-import ia.ns.elementary_number_theory
+import constructions.rat
 
 universe u
 
