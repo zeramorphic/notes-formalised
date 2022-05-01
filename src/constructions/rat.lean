@@ -45,6 +45,20 @@ begin
   tauto
 end
 
+lemma neg_or_neg_neg (a : ℤ) : a ≤ 0 ∨ -a ≤ 0 :=
+begin
+  convert int.le_total a 0 using 1,
+  simp,
+  split,
+  { intro h,
+    have := int.neg_le_neg h,
+    rw int.neg_zero at this,
+    rwa int.neg_neg at this },
+  { intro h,
+    have := int.neg_le_neg h,
+    rwa int.neg_zero at this }
+end
+
 def abs (x : ℤ) : ℤ := if 0 ≤ x then x else -x
 instance : has_abs ℤ := ⟨abs⟩
 
@@ -76,6 +90,8 @@ begin
   { exfalso, exact this rfl },
   exact nat.zero_lt_succ n
 end
+lemma coe_denom_pos (p : rat_repr) : (0 : ℤ) < ↑p.denom :=
+  int.coe_nat_lt_coe_nat_of_lt p.denom_pos
 
 -- Rational representations are equal if their cross-multiplication is equal.
 def r (p q : rat_repr) : Prop :=
@@ -341,22 +357,106 @@ begin
   assumption
 end
 
-def lt (a b : rat_repr) : Prop := a ≤ b ∧ ¬ a ≈ b
+protected lemma le_refl : ∀ a : rat_repr, a ≤ a :=
+begin
+  rintro ⟨num, denom, pos⟩,
+  simp,
+  rw ← int.distrib_right,
+  rw int.add_right_neg,
+  rw int.zero_mul
+end
+
+protected lemma le_trans : ∀ {a b c : rat_repr}, a ≤ b → b ≤ c → a ≤ c :=
+begin
+  simp,
+  intros a b c h₁ h₂,
+
+  have h₁' := int.mul_nonpos_of_nonneg_of_nonpos b.denom_nonneg
+    (int.mul_nonpos_of_nonneg_of_nonpos c.denom_nonneg h₁),
+  rw [ int.mul_comm,
+  int.mul_comm ↑c.denom,
+  int.distrib_right,
+  int.distrib_right,
+  ← int.neg_mul_eq_neg_mul,
+  ← int.neg_mul_eq_neg_mul,
+  ← int.neg_mul_eq_neg_mul ] at h₁',
+
+  have h₂' := int.mul_nonpos_of_nonneg_of_nonpos b.denom_nonneg
+    (int.mul_nonpos_of_nonneg_of_nonpos a.denom_nonneg h₂),
+  rw [ int.mul_comm,
+  int.mul_comm ↑a.denom,
+  int.distrib_right,
+  int.distrib_right ] at h₂',
+
+  rw [ int.mul_assoc,
+  int.mul_assoc,
+  ← int.mul_assoc ↑c.denom,
+  int.mul_comm ↑c.denom,
+  ← int.mul_assoc,
+  ← int.mul_assoc,
+  ← int.neg_neg (b.num * ↑a.denom * ↑c.denom * ↑b.denom) ] at h₂',
+
+  have := int.add_nonpos h₁' h₂',
+  rw [ int.add_assoc,
+  int.add_neg_cancel_left,
+  ← int.distrib_right ] at this,
+  have := int.nonpos_of_mul_pos b.coe_denom_pos this,
+  rw [int.mul_assoc,
+  int.mul_assoc,
+  int.mul_comm ↑b.denom,
+  int.mul_comm ↑b.denom,
+  ← int.mul_assoc,
+  ← int.mul_assoc,
+  ← int.distrib_right ] at this,
+  exact int.nonpos_of_mul_pos b.coe_denom_pos this
+end
+
+-- The order on rational representations is only antisymmetric up to equivalence.
+protected lemma le_antisymm : ∀ {a b : rat_repr}, a ≤ b → b ≤ a → a ≈ b :=
+begin
+  simp,
+  intros a b h₁ h₂,
+  have h₁' := int.neg_le_neg h₁,
+  rw int.neg_zero at h₁',
+  rw int.neg_add at h₁',
+  rw int.neg_mul_eq_neg_mul at h₁',
+  rw int.neg_mul_eq_neg_mul at h₁',
+  rw int.neg_neg at h₁',
+  rw int.add_comm at h₁',
+  have := int.le_antisymm h₂ h₁',
+  have : b.num * ↑(a.denom) + -a.num * ↑(b.denom) + a.num * ↑(b.denom) = a.num * ↑(b.denom),
+  { rw this,
+    rw int.zero_add },
+  rw int.add_assoc at this,
+  rw ← int.neg_mul_eq_neg_mul at this,
+  rw int.add_left_neg at this,
+  rw ← this,
+  rw int.add_zero
+end
+
+protected lemma le_total : ∀ a b : rat_repr, a ≤ b ∨ b ≤ a :=
+begin
+  intros a b,
+  simp,
+  rw int.add_comm,
+  rw ← int.neg_mul_eq_neg_mul,
+  rw ← int.neg_mul_eq_neg_mul,
+  convert int.neg_or_neg_neg (-(b.num * ↑a.denom) + a.num * ↑b.denom),
+  rw int.neg_add,
+  rw int.neg_neg
+end
+
+def lt (a b : rat_repr) : Prop := a ≤ b ∧ ¬ b ≤ a
 instance : has_lt rat_repr := ⟨lt⟩
 
 @[simp] lemma lt_def (a b : rat_repr)
-  : a < b ↔ a ≤ b ∧ ¬ a ≈ b := by refl
+  : a < b ↔ a ≤ b ∧ ¬ b ≤ a := by refl
 
-lemma lt_respects_r {a₁ a₂ b₁ b₂ : rat_repr}
-  (h₁ : a₁ ≈ b₁) (h₂ : a₂ ≈ b₂)
-  (hle : a₁ < a₂) : b₁ < b₂ :=
-begin
-  obtain ⟨hle₁, hle₂⟩ := hle,
-  split,
-  { exact le_respects_r h₁ h₂ hle₁ },
-  { by_contradiction,
-    exact hle₂ (r_trans (r_trans h₁ h) h₂.symm) }
-end
+instance : decidable_rel r := λ p q, int.decidable_eq _ _
+instance : decidable_rel le := λ p q, int.decidable_le _ _
+instance : decidable_rel lt := λ p q, and.decidable
+
+-- Absolute value
 
 def abs (a : rat_repr) : rat_repr := if 0 ≤ a.num then a else -a
 instance : has_abs rat_repr := ⟨abs⟩
@@ -435,6 +535,12 @@ begin
     assumption }
 end
 
+def inv (p : rat_repr) (h : p ≠ 0) : rat_repr :=
+begin
+  -- do le_total first
+  sorry
+end
+
 end rat_repr
 
 def rat := quotient rat_repr.setoid
@@ -505,27 +611,84 @@ begin
   exact add_left_neg a
 end
 
-def le : ℚ → ℚ → Prop := quotient.lift₂ (λ p q, p ≤ q)
-  begin
-    intros a₁ a₂ b₁ b₂ h₁ h₂,
-    dsimp,
-    ext,
-    split,
-    { intro h, exact rat_repr.le_respects_r h₁ h₂ h },
-    { intro h, exact rat_repr.le_respects_r h₁.symm h₂.symm h }
-  end
-instance : has_le ℚ := ⟨le⟩
+private lemma le_respects_r :
+  ∀ (a₁ a₂ b₁ b₂ : rat_repr), a₁ ≈ b₁ → a₂ ≈ b₂ → a₁.le a₂ = b₁.le b₂ :=
+begin
+  intros a₁ a₂ b₁ b₂ h₁ h₂,
+  ext,
+  split,
+  { intro h, exact rat_repr.le_respects_r h₁ h₂ h },
+  { intro h, exact rat_repr.le_respects_r h₁.symm h₂.symm h }
+end
 
-def lt : ℚ → ℚ → Prop := quotient.lift₂ (λ p q, p < q)
-  begin
-    intros a₁ a₂ b₁ b₂ h₁ h₂,
-    dsimp,
-    ext,
-    split,
-    { intro h, exact rat_repr.lt_respects_r h₁ h₂ h },
-    { intro h, exact rat_repr.lt_respects_r h₁.symm h₂.symm h }
-  end
-instance : has_lt ℚ := ⟨lt⟩
+def le : ℚ → ℚ → Prop := quotient.lift₂ rat_repr.le le_respects_r
+instance : has_le ℚ := ⟨le⟩
+-- Even though ℚ and (quotient rat_repr.setoid) are defeq, we need to do this
+-- for the type checker.
+instance : has_le (quotient rat_repr.setoid) := ⟨le⟩
+
+lemma le_def : ∀ p q : rat_repr, ⟦p⟧ ≤ ⟦q⟧ ↔ p ≤ q :=
+begin
+  intros p q,
+  rw iff_eq_eq,
+  revert p q,
+  change ∀ p q : rat_repr, (quotient.lift₂ rat_repr.le le_respects_r ⟦p⟧ ⟦q⟧) = (p ≤ q),
+  refine quotient.lift₂_mk _ _
+end
+
+def le_def₂ (a b : rat_repr) := ⟦a⟧ ≤ ⟦b⟧
+
+instance : linear_order ℚ := {
+  le := le,
+  le_refl := begin
+    intro a,
+    apply quotient.induction_on a, clear a,
+    intro a,
+    rw le_def,
+    exact rat_repr.le_refl a
+  end,
+  le_trans := begin
+    intros a b c,
+    apply quotient.induction_on₃ a b c, clear a b c,
+    intros a b c h₁ h₂,
+    rw le_def at *,
+    exact rat_repr.le_trans h₁ h₂
+  end,
+  le_antisymm := begin
+    intros a b,
+    apply quotient.induction_on₂ a b, clear a b,
+    intros a b h₁ h₂,
+    rw le_def at *,
+    refine quotient.sound _,
+    exact rat_repr.le_antisymm h₁ h₂
+  end,
+  le_total := begin
+    intros a b,
+    apply quotient.induction_on₂ a b, clear a b,
+    intros a b,
+    rw le_def,
+    rw le_def,
+    exact rat_repr.le_total a b
+  end,
+  lt := (λ a b, a ≤ b ∧ ¬ b ≤ a),
+  lt_iff_le_not_le := begin
+    intros a b,
+    apply quotient.induction_on₂ a b, clear a b,
+    intros a b,
+    repeat { rw le_def },
+    change (a ≤ b ∧ ¬ b ≤ a) ↔ a ≤ b ∧ ¬b ≤ a,
+    refl
+  end,
+  decidable_lt := begin
+    intros a b,
+    change decidable (a ≤ b ∧ ¬ b ≤ a),
+    haveI : decidable (a ≤ b) := quotient.lift₂.decidable_pred _ _ a b,
+    haveI : decidable (b ≤ a) := quotient.lift₂.decidable_pred _ _ b a,
+    apply and.decidable
+  end,
+  decidable_le := quotient.lift₂.decidable_pred _ _,
+  decidable_eq := quotient.decidable_eq,
+}
 
 def abs : ℚ → ℚ := quotient.lift (λ p, ⟦|p|⟧)
   (λ a b h, quotient.sound (rat_repr.abs_respects_r h))
