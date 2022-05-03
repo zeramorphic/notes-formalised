@@ -1,4 +1,6 @@
 import tactic.basic
+import logic.equiv.basic
+import data.subtype
 
 -- Useful utilities.
 
@@ -57,6 +59,23 @@ begin
   { intro h,
     have := int.neg_le_neg h,
     rwa int.neg_zero at this }
+end
+
+lemma sign_succ (a : ℕ) : sign ↑(a.succ) = 1 := rfl
+
+lemma sign_neg_succ (a : ℕ) : sign -[1+ a] = -1 := rfl
+
+lemma nat_abs_of_sign_mul : ∀ (a : ℤ), ↑(nat_abs a) = sign a * a
+| (n+1:ℕ) := begin
+  rw nat_abs_of_nat,
+  rw sign_succ,
+  rw int.one_mul
+end
+| 0       := rfl
+| -[1+ n] := begin
+  rw sign_neg_succ,
+  rw ← int.neg_eq_neg_one_mul,
+  refl
 end
 
 def abs (x : ℤ) : ℤ := if 0 ≤ x then x else -x
@@ -535,13 +554,86 @@ begin
     assumption }
 end
 
-def inv (p : rat_repr) (h : p ≠ 0) : rat_repr :=
+lemma zero_of_num_zero {p : rat_repr} (h : p.num = 0) : p ≈ 0 :=
 begin
-  -- do le_total first
-  sorry
+  simp,
+  rw [h, int.zero_mul, int.zero_mul]
+end
+
+lemma num_zero_of_zero {p : rat_repr} (h : p ≈ 0) : p.num = 0 :=
+begin
+  simp at h,
+  rw int.zero_mul at h,
+  rw ← h,
+  change p.num = p.num * 1,
+  rw int.mul_one
 end
 
 end rat_repr
+
+def nonzero_rat_repr := {p : rat_repr // p.num ≠ 0}
+
+namespace nonzero_rat_repr
+
+def inv (p : nonzero_rat_repr) : nonzero_rat_repr := ⟨
+  ⟨p.val.num.sign * p.val.denom, p.val.num.nat_abs, begin
+    intro h,
+    exact p.property (int.eq_zero_of_nat_abs_eq_zero h)
+  end⟩,
+  begin
+    intro h,
+    dsimp at h,
+    cases int.eq_zero_or_eq_zero_of_mul_eq_zero h with h₁ h₂,
+    { exact p.property (int.eq_zero_of_sign_eq_zero h₁) },
+    { change ↑p.val.denom = ↑0 at h₂,
+      rw int.coe_nat_eq_coe_nat_iff at h₂,
+      exact p.val.pos h₂ }
+  end
+⟩
+
+@[simp] lemma inv_num_def (p : nonzero_rat_repr) :
+  (inv p).val.num = p.val.num.sign * p.val.denom := rfl
+
+@[simp] lemma inv_denom_def (p : nonzero_rat_repr) :
+  (inv p).val.denom = p.val.num.nat_abs := rfl
+
+def r (p q : nonzero_rat_repr) : Prop := p.val ≈ q.val
+
+@[simp] lemma r_def (p q : nonzero_rat_repr)
+  : r p q ↔ p.val ≈ q.val := by refl
+
+instance setoid : setoid nonzero_rat_repr := subtype.setoid (λ p: rat_repr, p.num ≠ 0)
+
+@[simp] lemma equiv_def (p q : nonzero_rat_repr)
+  : p ≈ q ↔ p.val ≈ q.val := by refl
+
+lemma inv_respects_r (p q : nonzero_rat_repr) (h : p ≈ q)
+  : p.inv ≈ q.inv :=
+begin
+  rw equiv_def at *,
+  rw rat_repr.equiv_def at *,
+  rw inv_num_def at *,
+  rw inv_num_def at *,
+  rw inv_denom_def at *,
+  rw inv_denom_def at *,
+  rw int.nat_abs_of_sign_mul,
+  rw int.nat_abs_of_sign_mul,
+  rw int.mul_assoc,
+  rw int.mul_comm,
+  rw int.mul_comm q.val.num.sign,
+  rw ← int.mul_assoc,
+  rw int.mul_comm ↑p.val.denom,
+  rw ← h,
+  rw int.mul_comm p.val.num.sign,
+  rw ← int.mul_assoc,
+  congr' 1,
+  rw int.mul_comm,
+  rw int.mul_assoc q.val.num.sign,
+  congr' 1,
+  rw int.mul_comm
+end
+
+end nonzero_rat_repr
 
 def rat := quotient rat_repr.setoid
 notation `ℚ` := rat
@@ -695,3 +787,63 @@ def abs : ℚ → ℚ := quotient.lift (λ p, ⟦|p|⟧)
 instance : has_abs ℚ := ⟨abs⟩
 
 end rat
+
+def nonzero_rat := {p : ℚ // p ≠ 0}
+notation `ℚ*` := nonzero_rat
+
+namespace nonzero_rat
+
+def nonzero_rat_quot := quotient nonzero_rat_repr.setoid
+
+def nonzero_rat_of_nonzero_rat_repr (p : nonzero_rat_repr) : nonzero_rat :=
+⟨⟦p.val⟧, λ h, p.property (rat_repr.num_zero_of_zero (quotient.exact h))⟩
+
+def nonzero_rat_of_rat_repr (p : rat_repr) (h : p.num ≠ 0) : nonzero_rat :=
+nonzero_rat_of_nonzero_rat_repr ⟨p, h⟩
+
+noncomputable theorem nonzero_rat_equiv : ℚ* ≃ nonzero_rat_quot := ⟨
+  λ ⟨p, hp⟩, ⟦⟨quotient.out p, begin
+    intro h,
+    have := quotient.sound (rat_repr.zero_of_num_zero h),
+    rw quotient.out_eq at this,
+    exact hp this
+  end⟩⟧,
+  λ q, ⟨⟦q.out.val⟧, λ h, q.out.property (rat_repr.num_zero_of_zero (quotient.exact h))⟩,
+  begin
+    rintro ⟨q, hq⟩,
+    dsimp,
+    congr,
+    unfold_coes,
+    change ⟦(⟦⟨q.out, _⟩⟧ : nonzero_rat_quot).out.val⟧ = q,
+    induction q,
+    { apply quotient.sound,
+      change ⟦q⟧ ≠ ⟦0⟧ at hq,
+      change ⟦(⟨⟦q⟧.out, _⟩ : nonzero_rat_repr)⟧.out.val ≈ q,
+      have hq₁ : q.num ≠ 0 := λ hz, hq (quotient.sound (rat_repr.zero_of_num_zero hz)),
+      change ⟦(⟨⟦q⟧.out, _⟩ : nonzero_rat_repr)⟧.out.val ≈ (⟨q, hq₁⟩ : nonzero_rat_repr).val,
+      rw ← nonzero_rat_repr.equiv_def,
+      rw ← quotient.eq_mk_iff_out,
+      apply quotient.sound,
+      rw nonzero_rat_repr.equiv_def,
+      dsimp,
+      exact quotient.mk_out q },
+    { refl }
+  end,
+  begin
+    intro p,
+    dsimp,
+    unfold_coes,
+    change (⟦⟨⟦(quotient.out p).val⟧.out, _⟩⟧ : quotient nonzero_rat_repr.setoid) = p,
+    induction p,
+    { apply quotient.sound,
+      rw nonzero_rat_repr.equiv_def,
+      dsimp only,
+      transitivity (quotient.out ⟦p⟧).val,
+      { apply quotient.mk_out },
+      { rw ← nonzero_rat_repr.equiv_def,
+        apply quotient.mk_out } },
+    { refl }
+  end,
+⟩
+
+end nonzero_rat
