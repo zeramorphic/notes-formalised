@@ -255,7 +255,7 @@ variables {H : subgroup G}
 
 end group
 
--- Results about subgroups
+-- Subgroups are groups
 
 namespace group
 
@@ -307,6 +307,61 @@ end, begin
   rw coe_eq_iff_eq,
   simp,
 end⟩
+
+end group
+
+-- Results about subgroups
+
+namespace group
+
+variables {G : Type u} [group G]
+
+def is_subgroup (H : set G) := ∃ K : subgroup G, K.carrier = H
+
+lemma is_subgroup_of_mul_inv_mem {H : set G}
+(h₁ : H.nonempty) (h₂ : ∀ a b, a ∈ H → b ∈ H → a * b⁻¹ ∈ H) : is_subgroup H :=
+begin
+  have one_mem : (1 : G) ∈ H,
+  { obtain ⟨a, ha⟩ := h₁,
+    have := h₂ a a ha ha,
+    rwa mul_right_inv at this },
+  have inv_mem : ∀ (a : G), a ∈ H → a⁻¹ ∈ H,
+  { intros a ha,
+    have := h₂ 1 a one_mem ha,
+    rwa one_mul at this },
+  have mul_mem : ∀ (a b : G), a ∈ H → b ∈ H → a * b ∈ H,
+  { intros a b ha hb,
+    have := h₂ a b⁻¹ ha _,
+    { rwa inv_inv at this },
+    exact inv_mem _ hb },
+  refine ⟨{carrier := H, mul_mem := mul_mem, one_mem := one_mem, inv_mem := inv_mem}, _⟩,
+  dsimp only,
+  refl
+end
+
+lemma nonempty_of_subgroup (H : subgroup G) : H.carrier.nonempty :=
+begin
+  refine ⟨1, _⟩,
+  apply subgroup.one_mem
+end
+
+lemma is_subgroup_iff_mul_inv_mem {H : set G} :
+(H.nonempty ∧ ∀ a b, a ∈ H → b ∈ H → a * b⁻¹ ∈ H) ↔ is_subgroup H :=
+begin
+  split,
+  { rintro ⟨h₁, h₂⟩,
+    exact is_subgroup_of_mul_inv_mem h₁ h₂ },
+  { intro h,
+    obtain ⟨K, hK⟩ := h,
+    rw ← hK,
+    split,
+    { apply nonempty_of_subgroup K },
+    { intros a b ha hb,
+      refine subgroup.mul_mem _ _ _,
+      assumption,
+      apply subgroup.inv_mem,
+      assumption } }
+end
 
 end group
 
