@@ -1,5 +1,6 @@
 import tactic.basic
-import constructions.rat
+-- Use the standard construction for the rationals for convenience.
+import data.rat
 
 -- For now, we just define Cauchy sequences on the rationals.
 -- Once we construct the reals, we can use them to make metric spaces.
@@ -16,10 +17,22 @@ def add (u v : rcs) : rcs := ⟨
   λ n, u.1 n + v.1 n,
   begin
     intros ε hε,
-    have : ε/2 > 0,
-    obtain ⟨M, hM⟩ := u.2 ε hε,
-    obtain ⟨N, hN⟩ := v.2 ε hε,
+    have : ε/2 > 0 := by linarith,
+    obtain ⟨M, hM⟩ := u.2 (ε/2) this,
+    obtain ⟨N, hN⟩ := v.2 (ε/2) this,
     refine ⟨(max M N), _⟩,
+    intros m hm n hn,
+    have := le_max_left M N,
+    have := le_max_right M N,
+    specialize hM m (by linarith) n (by linarith),
+    specialize hN n (by linarith) m (by linarith),
+    dsimp at *,
+    have : ε = ε / 2 + ε / 2 := by ring,
+    rw this,
+    rw abs_lt at *,
+    obtain ⟨hM₁, hM₂⟩ := hM,
+    obtain ⟨hN₁, hN₂⟩ := hN,
+    split; linarith
   end
 ⟩
 

@@ -569,6 +569,39 @@ begin
   rw int.mul_one
 end
 
+def mul (p q : rat_repr) : rat_repr :=
+  ⟨p.num * q.num, p.denom * q.denom, nat.mul_ne_zero p.pos q.pos⟩
+instance : has_mul rat_repr := ⟨mul⟩
+
+@[simp] lemma mul_def {p q : rat_repr}
+  : p * q = ⟨p.num * q.num, p.denom * q.denom, nat.mul_ne_zero p.pos q.pos⟩
+  := rfl
+
+lemma mul_respects_r {a₁ a₂ b₁ b₂ : rat_repr}
+  (h₁ : a₁ ≈ b₁) (h₂ : a₂ ≈ b₂)
+  : a₁ * a₂ ≈ b₁ * b₂ :=
+begin
+  simp at *,
+  rw int.mul_assoc,
+  rw int.mul_assoc,
+  rw int.mul_comm a₂.num,
+  rw int.mul_comm b₂.num,
+  rw ← int.mul_assoc,
+  rw ← int.mul_assoc,
+  rw int.coe_nat_mul,
+  rw int.coe_nat_mul,
+  rw ← int.mul_assoc,
+  rw ← int.mul_assoc,
+  rw h₁,
+  rw int.mul_assoc,
+  rw int.mul_assoc,
+  rw int.mul_assoc,
+  rw int.mul_assoc,
+  rw int.mul_comm ↑b₂.denom,
+  rw h₂,
+  rw int.mul_comm b₂.num,
+end
+
 end rat_repr
 
 def nonzero_rat_repr := {p : rat_repr // p.num ≠ 0}
@@ -607,7 +640,7 @@ instance setoid : setoid nonzero_rat_repr := subtype.setoid (λ p: rat_repr, p.n
 @[simp] lemma equiv_def (p q : nonzero_rat_repr)
   : p ≈ q ↔ p.val ≈ q.val := by refl
 
-lemma inv_respects_r (p q : nonzero_rat_repr) (h : p ≈ q)
+lemma inv_respects_r {p q : nonzero_rat_repr} (h : p ≈ q)
   : p.inv ≈ q.inv :=
 begin
   rw equiv_def at *,
@@ -634,6 +667,8 @@ begin
 end
 
 end nonzero_rat_repr
+
+-- Rationals
 
 def rat := quotient rat_repr.setoid
 notation `ℚ` := rat
@@ -786,14 +821,29 @@ def abs : ℚ → ℚ := quotient.lift (λ p, ⟦|p|⟧)
   (λ a b h, quotient.sound (rat_repr.abs_respects_r h))
 instance : has_abs ℚ := ⟨abs⟩
 
+def mul : ℚ → ℚ → ℚ := quotient.lift₂ (λ p q, ⟦p * q⟧)
+  (λ a₁ a₂ b₁ b₂ h₁ h₂, quotient.sound (rat_repr.mul_respects_r h₁ h₂))
+instance : has_mul ℚ := ⟨mul⟩
+
 end rat
+
+-- Nonzero rationals
 
 def nonzero_rat := {p : ℚ // p ≠ 0}
 notation `ℚ*` := nonzero_rat
 
-namespace nonzero_rat
-
+-- Prefer nonzero_rat if possible.
 def nonzero_rat_quot := quotient nonzero_rat_repr.setoid
+
+namespace nonzero_rat_quot
+
+def inv : nonzero_rat_quot → nonzero_rat_quot :=
+  quotient.lift (quotient.mk ∘ nonzero_rat_repr.inv)
+  (λ a b, quotient.sound ∘ nonzero_rat_repr.inv_respects_r)
+
+end nonzero_rat_quot
+
+namespace nonzero_rat
 
 def nonzero_rat_of_nonzero_rat_repr (p : nonzero_rat_repr) : nonzero_rat :=
 ⟨⟦p.val⟧, λ h, p.property (rat_repr.num_zero_of_zero (quotient.exact h))⟩
@@ -801,7 +851,11 @@ def nonzero_rat_of_nonzero_rat_repr (p : nonzero_rat_repr) : nonzero_rat :=
 def nonzero_rat_of_rat_repr (p : rat_repr) (h : p.num ≠ 0) : nonzero_rat :=
 nonzero_rat_of_nonzero_rat_repr ⟨p, h⟩
 
-noncomputable theorem nonzero_rat_equiv : ℚ* ≃ nonzero_rat_quot := ⟨
+noncomputable theory
+
+instance : has_lift_t ℚ* ℚ := ⟨λ p, p.val⟩
+
+def nonzero_rat_equiv : ℚ* ≃ nonzero_rat_quot := ⟨
   λ ⟨p, hp⟩, ⟦⟨quotient.out p, begin
     intro h,
     have := quotient.sound (rat_repr.zero_of_num_zero h),
@@ -845,5 +899,8 @@ noncomputable theorem nonzero_rat_equiv : ℚ* ≃ nonzero_rat_quot := ⟨
     { refl }
   end,
 ⟩
+
+def inv : ℚ* → ℚ* := equiv.conj nonzero_rat_equiv.symm nonzero_rat_quot.inv
+instance : has_inv ℚ* := ⟨inv⟩
 
 end nonzero_rat

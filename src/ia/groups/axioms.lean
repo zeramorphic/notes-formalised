@@ -1,7 +1,11 @@
 import tactic.basic
-import constructions.rat
+import data.fintype.basic
+--import constructions.rat
 
 universe u
+
+-- Keep everything namespaced to avoid name clashes.
+namespace notes
 
 -- 1.2 Basic notion
 -- Much of these definitions are copied from mathlib.
@@ -40,13 +44,19 @@ class monoid (M : Type u) extends semigroup M, has_one M :=
 
 @[ancestor add_semigroup has_zero]
 class add_monoid (M : Type u) extends add_semigroup M, has_zero M :=
-(one_add : ∀ (a : M), 0 + a = a)
-(add_one : ∀ (a : M), a + 0 = a)
+(zero_add : ∀ (a : M), 0 + a = a)
+(add_zero : ∀ (a : M), a + 0 = a)
 
 attribute [to_additive] monoid
 
 section monoid
 variables {M : Type u} [monoid M]
+
+@[simp, to_additive]
+lemma one_mul : ∀ (a : M), 1 * a = a := monoid.one_mul
+
+@[simp, to_additive]
+lemma mul_one : ∀ (a : M), a * 1 = a := monoid.mul_one
 
 @[to_additive]
 instance monoid.to_is_left_id : is_left_id M (*) 1 :=
@@ -79,13 +89,9 @@ variables {G : Type u} [group G] {a b c : G}
 lemma mul_left_inv : ∀ a : G, a⁻¹ * a = 1 :=
 group.mul_left_inv
 
-@[to_additive] lemma inv_mul_self (a : G) : a⁻¹ * a = 1 := mul_left_inv a
-
 @[simp, to_additive]
 lemma mul_right_inv : ∀ a : G, a * a⁻¹ = 1 :=
 group.mul_right_inv
-
-@[to_additive] lemma mul_inv_self (a : G) : a * a⁻¹ = 1 := mul_right_inv a
 
 end group
 
@@ -104,7 +110,204 @@ instance : add_semigroup ℤ := ⟨int.add_assoc⟩
 instance : add_monoid ℤ := ⟨int.zero_add, int.add_zero⟩
 instance : add_group ℤ := ⟨int.add_left_neg, int.add_right_neg⟩
 
--- (iv) (ℚ, +) TODO: reals, complex numbers
-instance : add_semigroup ℚ := ⟨rat.add_assoc⟩
-instance : add_monoid ℚ := ⟨rat.zero_add, rat.add_zero⟩
-instance : add_group ℚ := ⟨rat.add_left_neg, rat.add_right_neg⟩
+-- 1.6 Basic group properties
+
+namespace group
+
+variables {G : Type u} [group G] {a b : G}
+
+@[to_additive]
+lemma eq_one_of_left_id (h : ∀ b, a * b = b) : a = 1 :=
+begin
+  have := h 1,
+  rwa mul_one at this,
+end
+
+@[to_additive]
+lemma eq_one_of_right_id (h : ∀ b, b * a = b) : a = 1 :=
+begin
+  have := h 1,
+  rwa one_mul at this,
+end
+
+@[to_additive]
+lemma eq_inv_of_mul_eq_one (h : a * b = 1) : a = b⁻¹ :=
+begin
+  have : a * b * b⁻¹ = 1 * b⁻¹ := by rw h,
+  rw one_mul at this,
+  rw mul_assoc at this,
+  rw mul_right_inv at this,
+  rwa mul_one at this,
+end
+
+@[to_additive]
+lemma mul_inv (a b : G) : (a * b)⁻¹ = b⁻¹ * a⁻¹ :=
+begin
+  rw ← eq_inv_of_mul_eq_one,
+  rw mul_assoc,
+  rw ← mul_assoc a⁻¹,
+  simp,
+end
+
+@[simp, to_additive]
+lemma inv_inv (a : G) : a⁻¹⁻¹ = a :=
+begin
+  rw ← eq_inv_of_mul_eq_one,
+  exact mul_right_inv a,
+end
+
+@[simp, to_additive]
+lemma one_inv : (1 : G)⁻¹ = 1 :=
+begin
+  rw ← eq_inv_of_mul_eq_one,
+  rw one_mul,
+end
+
+end group
+
+@[ancestor group]
+class abelian_group (G : Type u) extends group G :=
+(mul_comm : ∀ (a b : G), a * b = b * a)
+
+@[ancestor add_group]
+class add_abelian_group (G : Type u) extends add_group G :=
+(mul_comm : ∀ (a b : G), a + b = b + a)
+
+attribute [to_additive] abelian_group
+
+@[ancestor group]
+class finite_group (G : Type u) extends group G :=
+(hfinite : fintype G)
+
+@[ancestor add_group]
+class finite_add_group (G : Type u) extends add_group G :=
+(hfinite : fintype G)
+
+attribute [to_additive] finite_group
+
+@[ancestor group]
+class infinite_group (G : Type u) extends group G :=
+(hinfinite : infinite G)
+
+@[ancestor add_group]
+class infinite_add_group (G : Type u) extends add_group G :=
+(hinfinite : infinite G)
+
+attribute [to_additive] infinite_group
+
+namespace finite_group
+
+variables (G : Type u) [finite_group G]
+
+@[to_additive]
+def order : ℕ := fintype.sizeof G hfinite
+
+@[to_additive]
+instance : has_sizeof G := ⟨order G⟩
+
+end finite_group
+
+-- Subgroups
+
+structure subgroup (G : Type u) [group G] :=
+(carrier : set G)
+(mul_mem : ∀ {a b : G}, a ∈ carrier → b ∈ carrier → a * b ∈ carrier)
+(one_mem : (1 : G) ∈ carrier)
+(inv_mem : ∀ {a : G}, a ∈ carrier → a⁻¹ ∈ carrier)
+
+structure add_subgroup (G : Type u) [add_group G] :=
+(carrier : set G)
+(mul_mem : ∀ {a b : G}, a ∈ carrier → b ∈ carrier → a + b ∈ carrier)
+(zero_mem : (0 : G) ∈ carrier)
+(neg_mem : ∀ {a : G}, a ∈ carrier → -a ∈ carrier)
+
+attribute [to_additive] subgroup
+
+namespace group
+
+variables (G : Type u) [group G]
+
+@[to_additive]
+def trivial_subgroup : subgroup G := {
+  carrier := {a | a = 1},
+  mul_mem := begin
+    dsimp,
+    intros a b ha hb,
+    rw set.mem_singleton_iff at *,
+    rw [ha, hb, one_mul]
+  end,
+  one_mem := by simp,
+  inv_mem := begin
+    dsimp,
+    intros a ha,
+    rw set.mem_singleton_iff at *,
+    rw ha,
+    exact one_inv,
+  end,
+}
+
+variables {H : subgroup G}
+
+-- TODO: prove some lemmas about how coercion works with all the other operations
+@[to_additive] instance : has_coe H.carrier G := ⟨λ g, ↑g⟩
+@[to_additive] lemma coe_def {H: subgroup G} (a : H.carrier)
+  : ↑a = a.val := rfl
+
+end group
+
+-- Results about subgroups
+
+namespace group
+
+variables {G : Type u} [group G] (H : subgroup G)
+
+@[to_additive] instance has_one_of_subgroup : has_one H.carrier :=
+⟨⟨1, subgroup.one_mem H⟩⟩
+
+@[simp, to_additive] lemma coe_one : ↑(1 : H.carrier) = (1 : G) := rfl
+
+@[to_additive] instance has_mul_of_subgroup : has_mul H.carrier :=
+⟨λ a b, ⟨↑a * ↑b, subgroup.mul_mem H a.property b.property⟩⟩
+
+@[to_additive] lemma coe_eq {a b : H.carrier} (h : (↑a : G) = ↑b) : a = b := by {ext, exact h}
+@[to_additive] lemma coe_eq_iff_eq {a b : H.carrier} : a = b ↔ (↑a : G) = ↑b := ⟨congr_arg _, coe_eq H⟩
+
+@[simp, to_additive] lemma coe_mul {a b : H.carrier} : (↑(a * b) : G) = ↑a * ↑b := rfl
+
+@[to_additive] instance semigroup_of_subgroup : semigroup H.carrier :=
+⟨λ a b c, begin
+  rw coe_eq_iff_eq,
+  simp,
+  apply mul_assoc
+end⟩
+
+@[to_additive] instance monoid_of_subgroup : monoid H.carrier :=
+⟨begin
+  intro a,
+  rw coe_eq_iff_eq,
+  simp,
+end, begin
+  intro a,
+  rw coe_eq_iff_eq,
+  simp,
+end⟩
+
+@[to_additive] instance has_inv_of_subgroup : has_inv H.carrier :=
+⟨λ a, ⟨(↑a)⁻¹, by {apply subgroup.inv_mem, simp}⟩⟩
+
+@[simp, to_additive] lemma coe_inv {a : H.carrier} : ↑(a⁻¹) = (↑a : G)⁻¹ := rfl
+
+@[to_additive] instance group_of_subgroup : group H.carrier :=
+⟨begin
+  intro a,
+  rw coe_eq_iff_eq,
+  simp,
+end, begin
+  intro a,
+  rw coe_eq_iff_eq,
+  simp,
+end⟩
+
+end group
+
+end notes
