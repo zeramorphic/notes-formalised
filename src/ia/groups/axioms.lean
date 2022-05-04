@@ -331,6 +331,12 @@ namespace subgroup
 
 variables {G : Type u} [group G]
 
+@[to_additive] def mem (a : G) (H : subgroup G) : Prop := a ∈ H.carrier
+@[to_additive] instance : has_mem G (subgroup G) := ⟨mem⟩
+
+@[to_additive]
+lemma mem_def (H : subgroup G) (a : G) : a ∈ H ↔ a ∈ H.carrier := by refl
+
 @[to_additive]
 def is_subgroup (H : set G) := ∃ K : subgroup G, K.carrier = H
 
@@ -477,12 +483,12 @@ begin
 end
 
 @[to_additive]
-def inf (H K : subgroup G) : subgroup G := ⟨
-  ↑H ∩ ↑K,
-  λ a b ⟨haH, haK⟩ ⟨hbH, hbK⟩, ⟨mul_mem H haH hbH, mul_mem K haK hbK⟩,
-  ⟨one_mem H, one_mem K⟩,
-  λ a ⟨haH, haK⟩, ⟨inv_mem H haH, inv_mem K haK⟩
-⟩
+def inf (H K : subgroup G) : subgroup G := {
+  carrier := ↑H ∩ ↑K,
+  mul_mem := λ a b ⟨haH, haK⟩ ⟨hbH, hbK⟩, ⟨mul_mem H haH hbH, mul_mem K haK hbK⟩,
+  one_mem := ⟨one_mem H, one_mem K⟩,
+  inv_mem := λ a ⟨haH, haK⟩, ⟨inv_mem H haH, inv_mem K haK⟩
+}
 @[to_additive] instance : has_inf (subgroup G) := ⟨inf⟩
 
 @[to_additive]
@@ -513,17 +519,238 @@ begin
 end
 
 @[to_additive]
-instance : semilattice_inf (subgroup G) := {
-  inf := inf,
+def Inf (S : set (subgroup G)) : subgroup G := {
+  carrier := ⋂₀ (coe '' S),
+  mul_mem := begin
+    intros a b ha hb,
+    simp at *,
+    intros H hH,
+    apply mul_mem,
+    { exact ha H hH },
+    { exact hb H hH }
+  end,
+  one_mem := begin
+    simp,
+    intros H hH,
+    apply one_mem
+  end,
+  inv_mem := begin
+    intros a ha,
+    simp at *,
+    intros H hH,
+    apply inv_mem,
+    exact ha H hH
+  end,
+}
+
+@[to_additive]
+lemma Inf_def (S : set (subgroup G)) : (Inf S).carrier = ⋂₀ (coe '' S) := rfl
+
+@[to_additive]
+protected lemma Inf_le (S : set (subgroup G)) (H : subgroup G) (hH : H ∈ S) : Inf S ≤ H :=
+begin
+  rw le_def,
+  rw Inf_def,
+  intros a ha,
+  simp at ha,
+  exact ha H hH
+end
+
+@[to_additive]
+protected lemma le_Inf (S : set (subgroup G)) (H : subgroup G) (h : ∀ (K : subgroup G), K ∈ S → H ≤ K) : H ≤ Inf S :=
+begin
+  rw le_def,
+  rw Inf_def,
+  intros a ha,
+  simp,
+  intros K hK,
+  exact (le_def H K).mp (h K hK) ha
+end
+
+@[to_additive]
+def generated_subgroup (X : set G) : subgroup G := {
+  carrier := ⋂₀ {Y | X ⊆ Y ∧ ∃ H : subgroup G, Y = H.carrier},
+  mul_mem := begin
+    simp,
+    intros a b ha hb Y hY H hH,
+    rw hH at *,
+    exact mul_mem H (ha H.carrier hY H rfl) (hb H.carrier hY H rfl)
+  end,
+  one_mem := begin
+    simp,
+    intros Y hY H hH,
+    rw [hH, ← mem_def],
+    apply one_mem
+  end,
+  inv_mem := begin
+    simp,
+    intros a ha Y hY H hH,
+    rw [hH, ← mem_def],
+    apply inv_mem,
+    rw ← hH,
+    exact ha Y hY H hH
+  end,
+}
+
+@[simp, to_additive]
+lemma generated_subgroup_def (X : set G)
+: (generated_subgroup X).carrier = ⋂₀ {Y | X ⊆ Y ∧ ∃ H : subgroup G, Y = H.carrier} := rfl
+
+@[simp, to_additive]
+lemma le_generated_subgroup (S : set G) (H : subgroup G) (h : ↑H ⊆ S) : H ≤ generated_subgroup S :=
+begin
+  rw le_def,
+  rw generated_subgroup_def,
+  rintros a ha Y ⟨hY₁, hY₂⟩,
+  apply hY₁,
+  apply h,
+  exact ha
+end
+
+@[simp, to_additive]
+lemma eq_generated_subgroup (H : subgroup G) : generated_subgroup H.carrier = H :=
+begin
+  ext,
+  simp,
+  split,
+  { intro h,
+    exact h H.carrier subset_rfl H rfl },
+  { intros hx Y hY K hK,
+    rw hK,
+    rw hK at hY,
+    exact hY hx }
+end
+
+@[to_additive]
+def sup (H K : subgroup G) : subgroup G := generated_subgroup (↑H ∪ ↑K)
+@[to_additive] instance : has_sup (subgroup G) := ⟨sup⟩
+
+@[to_additive]
+lemma sup_def (H K : subgroup G) : H ⊔ K = generated_subgroup (↑H ∪ ↑K) := rfl
+
+@[to_additive]
+protected lemma le_sup_left (H K : subgroup G) : H ≤ H ⊔ K :=
+begin
+  rw sup_def,
+  apply le_generated_subgroup,
+  exact set.subset_union_left _ _
+end
+
+@[to_additive]
+protected lemma le_sup_right (H K : subgroup G) : K ≤ H ⊔ K :=
+begin
+  rw sup_def,
+  apply le_generated_subgroup,
+  exact set.subset_union_right _ _
+end
+
+@[to_additive]
+protected lemma sup_le (H K L : subgroup G) (hH : H ≤ L) (hK : K ≤ L) : H ⊔ K ≤ L :=
+begin
+  rw sup_def,
+  rw le_def,
+  rw generated_subgroup_def,
+  intros Y hY,
+  simp at hY,
+  exact hY L.carrier ((le_def H L).mp hH) ((le_def K L).mp hK) L rfl
+end
+
+@[to_additive]
+def Sup (S : set (subgroup G)) : subgroup G := generated_subgroup (⋃₀ (coe '' S))
+@[to_additive] instance : has_Sup (subgroup G) := ⟨Sup⟩
+
+@[to_additive]
+lemma Sup_def (S : set (subgroup G)) : Sup S = generated_subgroup (⋃₀ (coe '' S)) := rfl
+
+@[to_additive]
+protected lemma le_Sup (S : set (subgroup G)) (H : subgroup G) (h : H ∈ S) : H ≤ Sup S :=
+begin
+  rw Sup_def,
+  refine le_generated_subgroup _ _ _,
+  intros a ha,
+  simp,
+  exact ⟨H, h, ha⟩
+end
+
+@[to_additive]
+protected lemma Sup_le (S : set (subgroup G)) (H : subgroup G)
+(h : ∀ (K : subgroup G), K ∈ S → K ≤ H) : Sup S ≤ H :=
+begin
+  rw Sup_def,
+  rw le_def,
+  rw generated_subgroup_def,
+  intro a,
+  simp,
+  intro h',
+  have := h' H.carrier _,
+  { apply this H rfl },
+  intros Y hY,
+  change Y.carrier ⊆ H.carrier,
+  rw ← le_def,
+  exact h _ hY
+end
+
+@[to_additive]
+def top : subgroup G := {
+  carrier := set.univ,
+  mul_mem := λ a b ha hb, set.mem_univ _,
+  one_mem := set.mem_univ _,
+  inv_mem := λ a ha, set.mem_univ _,
+}
+@[to_additive] instance : has_top (subgroup G) := ⟨top⟩
+
+@[to_additive]
+lemma top_def : (⊤ : subgroup G).carrier = set.univ := rfl
+
+@[to_additive] def bot : subgroup G := trivial_subgroup G
+@[to_additive] instance : has_bot (subgroup G) := ⟨bot⟩
+
+@[to_additive]
+lemma bot_def : (⊥ : subgroup G).carrier = {1} := rfl
+
+@[to_additive]
+protected lemma le_top (H : subgroup G) : H ≤ ⊤ :=
+begin
+  rw le_def,
+  rw top_def,
+  exact set.subset_univ _
+end
+
+@[to_additive]
+protected lemma bot_le (H : subgroup G) : ⊥ ≤ H :=
+begin
+  rw le_def,
+  rw bot_def,
+  simp,
+  apply one_mem
+end
+
+@[to_additive]
+instance : complete_lattice (subgroup G) := {
+  sup := sup,
   le := le,
   lt := lt,
   le_refl := subgroup.le_refl,
   le_trans := subgroup.le_trans,
   lt_iff_le_not_le := subgroup.lt_iff_le_not_le,
   le_antisymm := subgroup.le_antisymm,
+  le_sup_left := subgroup.le_sup_left,
+  le_sup_right := subgroup.le_sup_right,
+  sup_le := subgroup.sup_le,
+  inf := inf,
   inf_le_left := subgroup.inf_le_left,
   inf_le_right := subgroup.inf_le_right,
-  le_inf := subgroup.le_inf
+  le_inf := subgroup.le_inf,
+  Sup := Sup,
+  le_Sup := subgroup.le_Sup,
+  Sup_le := subgroup.Sup_le,
+  Inf := Inf,
+  Inf_le := subgroup.Inf_le,
+  le_Inf := subgroup.le_Inf,
+  top := top,
+  bot := bot,
+  le_top := subgroup.le_top,
+  bot_le := subgroup.bot_le,
 }
 
 end subgroup
