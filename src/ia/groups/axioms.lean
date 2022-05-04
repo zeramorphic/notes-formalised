@@ -1,5 +1,6 @@
 import tactic.basic
 import data.fintype.basic
+import order.lattice
 --import constructions.rat
 
 universe u
@@ -106,9 +107,9 @@ instance : has_inv unit := ⟨λ x, ()⟩
 instance : group unit := by {split; simp}
 
 -- (iii) (ℤ, +)
-instance : add_semigroup ℤ := ⟨int.add_assoc⟩
-instance : add_monoid ℤ := ⟨int.zero_add, int.add_zero⟩
-instance : add_group ℤ := ⟨int.add_left_neg, int.add_right_neg⟩
+instance int.add_semigroup : add_semigroup ℤ := ⟨int.add_assoc⟩
+instance int.add_monoid : add_monoid ℤ := ⟨int.zero_add, int.add_zero⟩
+instance int.add_group : add_group ℤ := ⟨int.add_left_neg, int.add_right_neg⟩
 
 -- 1.6 Basic group properties
 
@@ -223,7 +224,7 @@ structure add_subgroup (G : Type u) [add_group G] :=
 
 attribute [to_additive] subgroup
 
-namespace group
+namespace subgroup
 
 variables (G : Type u) [group G]
 
@@ -242,7 +243,7 @@ def trivial_subgroup : subgroup G := {
     intros a ha,
     rw set.mem_singleton_iff at *,
     rw ha,
-    exact one_inv,
+    exact group.one_inv,
   end,
 }
 
@@ -252,36 +253,47 @@ variables {H : subgroup G}
 @[to_additive] instance : has_coe H.carrier G := ⟨λ g, ↑g⟩
 @[to_additive] lemma coe_def {H: subgroup G} (a : H.carrier)
   : ↑a = a.val := rfl
+@[to_additive] instance : has_lift_t (subgroup G) (set G) := ⟨λ K, K.carrier⟩
+@[to_additive] lemma lift_t_def (H : subgroup G)
+  : ↑H = H.carrier := rfl
 
-end group
+end subgroup
 
 -- Subgroups are groups
 
-namespace group
+namespace subgroup
 
 variables {G : Type u} [group G] (H : subgroup G)
 
-@[to_additive] instance has_one_of_subgroup : has_one H.carrier :=
+@[to_additive]
+instance has_one_of_subgroup : has_one H.carrier :=
 ⟨⟨1, subgroup.one_mem H⟩⟩
 
-@[simp, to_additive] lemma coe_one : ↑(1 : H.carrier) = (1 : G) := rfl
+@[simp, to_additive]
+lemma coe_one : ↑(1 : H.carrier) = (1 : G) := rfl
 
-@[to_additive] instance has_mul_of_subgroup : has_mul H.carrier :=
+@[to_additive]
+instance has_mul_of_subgroup : has_mul H.carrier :=
 ⟨λ a b, ⟨↑a * ↑b, subgroup.mul_mem H a.property b.property⟩⟩
 
-@[to_additive] lemma coe_eq {a b : H.carrier} (h : (↑a : G) = ↑b) : a = b := by {ext, exact h}
-@[to_additive] lemma coe_eq_iff_eq {a b : H.carrier} : a = b ↔ (↑a : G) = ↑b := ⟨congr_arg _, coe_eq H⟩
+@[to_additive]
+lemma coe_eq {a b : H.carrier} (h : (↑a : G) = ↑b) : a = b := by {ext, exact h}
+@[to_additive]
+lemma coe_eq_iff_eq {a b : H.carrier} : a = b ↔ (↑a : G) = ↑b := ⟨congr_arg _, coe_eq H⟩
 
-@[simp, to_additive] lemma coe_mul {a b : H.carrier} : (↑(a * b) : G) = ↑a * ↑b := rfl
+@[simp, to_additive]
+lemma coe_mul {a b : H.carrier} : (↑(a * b) : G) = ↑a * ↑b := rfl
 
-@[to_additive] instance semigroup_of_subgroup : semigroup H.carrier :=
+@[to_additive]
+instance semigroup_of_subgroup : semigroup H.carrier :=
 ⟨λ a b c, begin
   rw coe_eq_iff_eq,
   simp,
   apply mul_assoc
 end⟩
 
-@[to_additive] instance monoid_of_subgroup : monoid H.carrier :=
+@[to_additive]
+instance monoid_of_subgroup : monoid H.carrier :=
 ⟨begin
   intro a,
   rw coe_eq_iff_eq,
@@ -292,12 +304,15 @@ end, begin
   simp,
 end⟩
 
-@[to_additive] instance has_inv_of_subgroup : has_inv H.carrier :=
+@[to_additive]
+instance has_inv_of_subgroup : has_inv H.carrier :=
 ⟨λ a, ⟨(↑a)⁻¹, by {apply subgroup.inv_mem, simp}⟩⟩
 
-@[simp, to_additive] lemma coe_inv {a : H.carrier} : ↑(a⁻¹) = (↑a : G)⁻¹ := rfl
+@[simp, to_additive]
+lemma coe_inv {a : H.carrier} : ↑(a⁻¹) = (↑a : G)⁻¹ := rfl
 
-@[to_additive] instance group_of_subgroup : group H.carrier :=
+@[to_additive]
+instance group_of_subgroup : group H.carrier :=
 ⟨begin
   intro a,
   rw coe_eq_iff_eq,
@@ -308,16 +323,30 @@ end, begin
   simp,
 end⟩
 
-end group
+end subgroup
 
 -- Results about subgroups
 
-namespace group
+namespace subgroup
 
 variables {G : Type u} [group G]
 
+@[to_additive]
 def is_subgroup (H : set G) := ∃ K : subgroup G, K.carrier = H
 
+@[ext, to_additive]
+lemma subgroup_ext {H K : subgroup G} (h : H.carrier = K.carrier) : H = K :=
+begin
+  induction H,
+  induction K,
+  congr'
+end
+
+@[to_additive]
+lemma subgroup_ext_iff {H K : subgroup G} : H.carrier = K.carrier ↔ H = K :=
+⟨subgroup_ext, λ h, by congr'⟩
+
+@[to_additive]
 lemma is_subgroup_of_mul_inv_mem {H : set G}
 (h₁ : H.nonempty) (h₂ : ∀ a b, a ∈ H → b ∈ H → a * b⁻¹ ∈ H) : is_subgroup H :=
 begin
@@ -332,19 +361,21 @@ begin
   have mul_mem : ∀ (a b : G), a ∈ H → b ∈ H → a * b ∈ H,
   { intros a b ha hb,
     have := h₂ a b⁻¹ ha _,
-    { rwa inv_inv at this },
+    { rwa group.inv_inv at this },
     exact inv_mem _ hb },
   refine ⟨{carrier := H, mul_mem := mul_mem, one_mem := one_mem, inv_mem := inv_mem}, _⟩,
   dsimp only,
   refl
 end
 
+@[to_additive]
 lemma nonempty_of_subgroup (H : subgroup G) : H.carrier.nonempty :=
 begin
   refine ⟨1, _⟩,
   apply subgroup.one_mem
 end
 
+@[to_additive]
 lemma is_subgroup_iff_mul_inv_mem {H : set G} :
 (H.nonempty ∧ ∀ a b, a ∈ H → b ∈ H → a * b⁻¹ ∈ H) ↔ is_subgroup H :=
 begin
@@ -363,6 +394,138 @@ begin
       assumption } }
 end
 
-end group
+end subgroup
+
+namespace add_subgroup
+
+lemma subgroup_int_of_n_dvd (n : ℤ) : is_add_subgroup {k | (n ∣ k)} :=
+begin
+  refine is_add_subgroup_of_add_neg_mem _ _,
+  { have : (0 : ℤ) ∈ {k | (n ∣ k)},
+    { apply int.dvd_of_mod_eq_zero,
+      apply int.zero_mod },
+    apply set.nonempty_of_mem this },
+  { intros a b ha hb,
+    dsimp at *,
+    rw int.dvd_iff_mod_eq_zero at *,
+    rw ← int.sub_eq_add_neg,
+    rw int.sub_mod,
+    rw ha, rw hb,
+    rw sub_zero,
+    apply int.zero_mod }
+end
+
+-- The converse statement is much more difficult to prove at the moment.
+
+end add_subgroup
+
+-- Lattice of subgroups
+
+namespace subgroup
+
+variables {G : Type u} [group G]
+
+@[to_additive] def le (H K : subgroup G) : Prop := H.carrier ⊆ K.carrier
+@[to_additive] instance : has_le (subgroup G) := ⟨le⟩
+
+@[to_additive]
+lemma le_def (H K : subgroup G) : H ≤ K ↔ H.carrier ⊆ K.carrier := by refl
+
+@[to_additive]
+protected lemma le_refl (H : subgroup G) : H ≤ H := by rw le_def
+
+@[to_additive]
+protected lemma le_trans (H K L : subgroup G) (h₁ : H ≤ K) (h₂ : K ≤ L) : H ≤ L :=
+begin
+  rw le_def at *,
+  transitivity K.carrier; assumption
+end
+
+@[to_additive] def lt (H K : subgroup G) : Prop := H.carrier ⊂ K.carrier
+@[to_additive] instance : has_lt (subgroup G) := ⟨lt⟩
+
+@[to_additive]
+lemma lt_def (H K : subgroup G) : H < K ↔ H.carrier ⊂ K.carrier := by refl
+
+@[to_additive]
+protected lemma lt_iff_le_not_le (H K : subgroup G) : H < K ↔ H ≤ K ∧ ¬K ≤ H :=
+begin
+  rw [le_def, le_def, lt_def],
+  split,
+  { intro h₁,
+    split,
+    { exact subset_of_ssubset h₁ },
+    { intro h₂,
+      exact ne_of_ssubset (ssubset_of_ssubset_of_subset h₁ h₂) rfl } },
+  { rintro ⟨h₁, h₂⟩,
+    refine ssubset_of_subset_of_ne h₁ _,
+    intro h₃,
+    rw h₃ at h₂,
+    exact h₂ subset_rfl }
+end
+
+@[to_additive]
+protected lemma le_antisymm (H K : subgroup G) (h₁ : H ≤ K) (h₂ : K ≤ H) : H = K :=
+begin
+  ext,
+  rw le_def at *,
+  split,
+  { intro h,
+    exact h₁ h },
+  { intro h,
+    exact h₂ h }
+end
+
+@[to_additive]
+def inf (H K : subgroup G) : subgroup G := ⟨
+  ↑H ∩ ↑K,
+  λ a b ⟨haH, haK⟩ ⟨hbH, hbK⟩, ⟨mul_mem H haH hbH, mul_mem K haK hbK⟩,
+  ⟨one_mem H, one_mem K⟩,
+  λ a ⟨haH, haK⟩, ⟨inv_mem H haH, inv_mem K haK⟩
+⟩
+@[to_additive] instance : has_inf (subgroup G) := ⟨inf⟩
+
+@[to_additive]
+lemma inf_def (H K : subgroup G) : (H ⊓ K).carrier = H.carrier ∩ K.carrier := rfl
+
+@[to_additive]
+protected lemma inf_le_left (H K : subgroup G) : H ⊓ K ≤ H :=
+begin
+  rw le_def,
+  rw inf_def,
+  exact set.inter_subset_left ↑H ↑K
+end
+
+@[to_additive]
+protected lemma inf_le_right (H K : subgroup G) : H ⊓ K ≤ K :=
+begin
+  rw le_def,
+  rw inf_def,
+  exact set.inter_subset_right ↑H ↑K
+end
+
+@[to_additive]
+protected lemma le_inf (H K L : subgroup G) (hK : H ≤ K) (hL : H ≤ L) : H ≤ K ⊓ L :=
+begin
+  rw le_def at *,
+  rw inf_def,
+  refine set.subset_inter _ _; assumption
+end
+
+@[to_additive]
+instance : semilattice_inf (subgroup G) := {
+  inf := inf,
+  le := le,
+  lt := lt,
+  le_refl := subgroup.le_refl,
+  le_trans := subgroup.le_trans,
+  lt_iff_le_not_le := subgroup.lt_iff_le_not_le,
+  le_antisymm := subgroup.le_antisymm,
+  inf_le_left := subgroup.inf_le_left,
+  inf_le_right := subgroup.inf_le_right,
+  le_inf := subgroup.le_inf
+}
+
+end subgroup
 
 end notes
