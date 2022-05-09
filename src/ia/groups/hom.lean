@@ -188,10 +188,8 @@ instance epi_of_iso [iso_class Φ G H] : epi_class Φ G H := {
   surj := λ f, (iso_bij f).2
 }
 
--- TODO: why is this noncomputable?
-
 @[to_additive]
-lemma iso_of_mono_surj [mono_class Φ G H] {φ : Φ} (h : function.surjective φ) :
+def iso_of_mono_surj [mono_class Φ G H] {φ : Φ} (h : function.surjective φ) :
 Σ' (ψ : G ≅ H), fun_like.coe ψ = fun_like.coe φ := ⟨
   ⟨⟨fun_like.coe φ, λ x y, by simp⟩,
   ⟨by simp, h⟩⟩,
