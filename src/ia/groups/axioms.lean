@@ -1,6 +1,6 @@
 import tactic.basic
 import data.fintype.basic
-import order.lattice
+import data.set_like.basic
 --import constructions.rat
 
 universe u
@@ -115,24 +115,24 @@ instance int.add_group : add_group ℤ := ⟨int.add_left_neg, int.add_right_neg
 
 namespace group
 
-variables {G : Type u} [group G] {a b : G}
+variables {G : Type u} [group G]
 
 @[to_additive]
-lemma eq_one_of_left_id (h : ∀ b, a * b = b) : a = 1 :=
+lemma eq_one_of_left_id {a b : G} (h : ∀ b, a * b = b) : a = 1 :=
 begin
   have := h 1,
   rwa mul_one at this,
 end
 
 @[to_additive]
-lemma eq_one_of_right_id (h : ∀ b, b * a = b) : a = 1 :=
+lemma eq_one_of_right_id {a b : G} (h : ∀ b, b * a = b) : a = 1 :=
 begin
   have := h 1,
   rwa one_mul at this,
 end
 
 @[to_additive]
-lemma eq_inv_of_mul_eq_one (h : a * b = 1) : a = b⁻¹ :=
+lemma eq_inv_of_mul_eq_one {a b : G} (h : a * b = 1) : a = b⁻¹ :=
 begin
   have : a * b * b⁻¹ = 1 * b⁻¹ := by rw h,
   rw one_mul at this,
@@ -142,7 +142,7 @@ begin
 end
 
 @[to_additive]
-lemma mul_inv (a b : G) : (a * b)⁻¹ = b⁻¹ * a⁻¹ :=
+lemma mul_inv_rev (a b : G) : (a * b)⁻¹ = b⁻¹ * a⁻¹ :=
 begin
   rw ← eq_inv_of_mul_eq_one,
   rw mul_assoc,
@@ -331,11 +331,7 @@ namespace subgroup
 
 variables {G : Type u} [group G]
 
-@[to_additive] def mem (a : G) (H : subgroup G) : Prop := a ∈ H.carrier
-@[to_additive] instance : has_mem G (subgroup G) := ⟨mem⟩
-
-@[to_additive]
-lemma mem_def (H : subgroup G) (a : G) : a ∈ H ↔ a ∈ H.carrier := by refl
+-- TODO: Convert ∃ to Σ' in subgroup definition
 
 @[to_additive]
 def is_subgroup (H : set G) := ∃ K : subgroup G, K.carrier = H
@@ -351,6 +347,18 @@ end
 @[to_additive]
 lemma subgroup_ext_iff {H K : subgroup G} : H.carrier = K.carrier ↔ H = K :=
 ⟨subgroup_ext, λ h, by congr'⟩
+
+@[to_additive] instance : set_like (subgroup G) G := {
+  coe := λ H, H.carrier,
+  coe_injective' := begin
+    intros H K h,
+    exact subgroup_ext h
+  end,
+}
+
+@[simp, to_additive]
+lemma mem_carrier {H : subgroup G} {x : G}
+: x ∈ H.carrier ↔ x ∈ (H : set G) := iff.rfl
 
 @[to_additive]
 lemma is_subgroup_of_mul_inv_mem {H : set G}
@@ -579,13 +587,13 @@ def generated_subgroup (X : set G) : subgroup G := {
   one_mem := begin
     simp,
     intros Y hY H hH,
-    rw [hH, ← mem_def],
+    rw [hH, mem_carrier],
     apply one_mem
   end,
   inv_mem := begin
     simp,
     intros a ha Y hY H hH,
-    rw [hH, ← mem_def],
+    rw [hH, mem_carrier],
     apply inv_mem,
     rw ← hH,
     exact ha Y hY H hH
@@ -754,5 +762,73 @@ instance : complete_lattice (subgroup G) := {
 }
 
 end subgroup
+
+namespace group
+
+variables {G : Type*} [group G] {a b c : G}
+
+-- Various utility lemmas.
+
+@[to_additive]
+lemma mul_left_cancel (h : a * b = a * c) : b = c :=
+begin
+  have : a⁻¹ * (a * b) = a⁻¹ * (a * c) := by rw h,
+  rwa [← mul_assoc, ← mul_assoc, mul_left_inv, one_mul, one_mul] at this
+end
+
+@[simp, to_additive] lemma mul_left_cancel_iff : a * b = a * c ↔ b = c :=
+⟨mul_left_cancel, λ h, by rw h⟩
+
+@[to_additive]
+lemma eq_one_of_mul_right_cancel (h : a * b = a) : b = 1 :=
+begin
+  have : a⁻¹ * (a * b) = a⁻¹ * a := by rw h,
+  rwa [← mul_assoc, mul_left_inv, one_mul] at this
+end
+
+@[to_additive]
+lemma eq_one_of_mul_left_cancel (h : b * a = a) : b = 1 :=
+begin
+  have : b * a * a⁻¹ = a * a⁻¹ := by rw h,
+  rwa [mul_assoc, mul_right_inv, mul_one] at this
+end
+
+@[to_additive]
+lemma mul_right_cancel (h : a * b = c * b) : a = c :=
+begin
+  have : a * b  * b⁻¹ = c * b * b⁻¹ := by rw h,
+  rwa [mul_assoc, mul_assoc, mul_right_inv, mul_one, mul_one] at this
+end
+
+@[simp, to_additive] lemma mul_right_cancel_iff : a * b = c * b ↔ a = c :=
+⟨mul_right_cancel, λ h, by rw h⟩
+
+@[to_additive] lemma mul_left_injective (a : G) : function.injective (* a) :=
+λ x y h, mul_right_cancel h
+
+@[to_additive] lemma mul_right_injective (a : G) : function.injective (λ x, a * x) :=
+λ x y h, mul_left_cancel h
+
+@[to_additive] lemma mul_ne_mul_left (a : G) : b * a ≠ c * a ↔ b ≠ c :=
+begin
+  split,
+  { intros h₁ h₂,
+    rw h₂ at h₁,
+    exact h₁ rfl },
+  { intros h₁ h₂,
+    exact h₁ (mul_right_cancel h₂) }
+end
+
+@[to_additive] lemma mul_ne_mul_right (a : G) : a * b ≠ a * c ↔ b ≠ c :=
+begin
+  split,
+  { intros h₁ h₂,
+    rw h₂ at h₁,
+    exact h₁ rfl },
+  { intros h₁ h₂,
+    exact h₁ (mul_left_cancel h₂) }
+end
+
+end group
 
 end notes
