@@ -250,6 +250,9 @@ def trivial {G : Type u} [group G] : subgroup G := {
 @[simp, to_additive]
 lemma trivial_def : (trivial : subgroup G).carrier = {1} := rfl
 
+@[simp, to_additive]
+lemma mem_trivial_carrier (x : G) : x ∈ (trivial : subgroup G).carrier ↔ x = 1 := iff.rfl
+
 variables {H : subgroup G}
 
 -- TODO: prove some lemmas about how coercion works with all the other operations
@@ -335,7 +338,18 @@ namespace subgroup
 variables {G : Type u} [group G]
 
 @[to_additive]
-def is_subgroup (H : set G) := ∃ K : subgroup G, K.carrier = H
+def is_subgroup (H : set G) :=
+(∀ {a b : G}, a ∈ H → b ∈ H → a * b ∈ H) ∧
+((1 : G) ∈ H) ∧
+(∀ {a : G}, a ∈ H → a⁻¹ ∈ H)
+
+@[to_additive]
+def subgroup_of_is_subgroup {H : set G} (h : is_subgroup H) : Σ' (K : subgroup G), K.carrier = H :=
+⟨⟨H, h.1, h.2.1, h.2.2⟩, rfl⟩
+
+@[to_additive]
+lemma is_subgroup_of_subgroup (H : subgroup G) : is_subgroup H.carrier :=
+⟨λ a b, mul_mem H, one_mem H, λ a, inv_mem H⟩
 
 @[ext, to_additive]
 lemma subgroup_ext {H K : subgroup G} (h : H.carrier = K.carrier) : H = K :=
@@ -359,7 +373,10 @@ lemma subgroup_ext_iff {H K : subgroup G} : H.carrier = K.carrier ↔ H = K :=
 
 @[simp, to_additive]
 lemma mem_carrier {H : subgroup G} {x : G}
-: x ∈ H.carrier ↔ x ∈ (H : set G) := iff.rfl
+: x ∈ H.carrier ↔ x ∈ H := iff.rfl
+
+@[simp, to_additive]
+lemma mem_trivial (x : G) : x ∈ (trivial : subgroup G) ↔ x = 1 := iff.rfl
 
 @[to_additive]
 lemma is_subgroup_of_mul_inv_mem {H : set G}
@@ -378,9 +395,7 @@ begin
     have := h₂ a b⁻¹ ha _,
     { rwa group.inv_inv at this },
     exact inv_mem _ hb },
-  refine ⟨{carrier := H, mul_mem := mul_mem, one_mem := one_mem, inv_mem := inv_mem}, _⟩,
-  dsimp only,
-  refl
+  refine ⟨mul_mem, one_mem, inv_mem⟩
 end
 
 @[to_additive]
@@ -398,14 +413,14 @@ begin
   { rintro ⟨h₁, h₂⟩,
     exact is_subgroup_of_mul_inv_mem h₁ h₂ },
   { intro h,
-    obtain ⟨K, hK⟩ := h,
-    rw ← hK,
+    obtain ⟨mul_mem, one_mem, inv_mem⟩ := h,
+    --rw ← hK,
     split,
-    { apply nonempty_of_subgroup K },
+    { apply set.nonempty_of_mem one_mem, },
     { intros a b ha hb,
-      refine subgroup.mul_mem _ _ _,
+      refine mul_mem _ _,
       assumption,
-      apply subgroup.inv_mem,
+      apply inv_mem,
       assumption } }
 end
 

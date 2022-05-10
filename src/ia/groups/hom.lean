@@ -356,7 +356,27 @@ def kernel [hom_class Φ G H] (φ : Φ) : subgroup G := {
 @[simp, to_additive]
 def kernel_def [hom_class Φ G H] (φ : Φ) : (kernel φ).carrier = {x | φ x = 1} := rfl
 
--- TODO: reverse direction of all of the following results
+@[simp, to_additive]
+def mem_kernel_iff [hom_class Φ G H] (x : G) (φ : Φ) : x ∈ kernel φ ↔ φ x = 1 :=
+iff.rfl
+
+@[simp, to_additive]
+def kernel_trivial [hom_class Φ G H] {φ : Φ} : kernel φ = subgroup.trivial ↔ ∀ x, φ x = 1 → x = 1 :=
+begin
+  split,
+  { intros trivial x h,
+    have : x ∈ kernel φ := (mem_kernel_iff x φ).mpr h,
+    rw trivial at this,
+    rw ← subgroup.mem_carrier at this,
+    simp at this,
+    exact this },
+  { intro h,
+    ext,
+    simp,
+    split,
+    { exact h x },
+    { intro g, rw g, rw map_one } }
+end
 
 @[to_additive]
 lemma surj_of_image_eq_univ [hom_class Φ G H] {φ : Φ} (h : image φ = subgroup.univ) : function.surjective φ :=
@@ -371,6 +391,18 @@ begin
   refine ⟨a, ha₂⟩
 end
 
+@[simp, to_additive]
+theorem surj_iff_image_eq_univ [hom_class Φ G H] {φ : Φ} : function.surjective φ ↔ image φ = subgroup.univ :=
+begin
+  split,
+  { intro h,
+    rw ← subgroup.subgroup_ext_iff,
+    rw subgroup.univ_def,
+    rw image_def,
+    exact set.image_univ_of_surjective h },
+  { exact surj_of_image_eq_univ }
+end
+
 @[to_additive]
 lemma inj_of_kernel_trivial [hom_class Φ G H] {φ : Φ} (h : kernel φ = subgroup.trivial) : function.injective φ :=
 begin
@@ -383,6 +415,18 @@ begin
   have := (h (x * y⁻¹)).mp this,
   simp at this,
   rwa ← group.mul_inv_eq_one
+end
+
+@[simp, to_additive]
+theorem inj_iff_kernel_trivial [hom_class Φ G H] {φ : Φ} : function.injective φ ↔ kernel φ = subgroup.trivial :=
+begin
+  split,
+  { intro h,
+    ext,
+    simp,
+    have : φ 1 = 1 := map_one φ,
+    exact function.injective.eq_iff' h this },
+  { exact inj_of_kernel_trivial }
 end
 
 end hom
