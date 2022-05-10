@@ -188,6 +188,8 @@ instance epi_of_iso [iso_class Φ G H] : epi_class Φ G H := {
   surj := λ f, (iso_bij f).2
 }
 
+-- TODO: make is_iso and so on
+
 @[to_additive]
 def iso_of_mono_surj [mono_class Φ G H] {φ : Φ} (h : function.surjective φ) :
 Σ' (ψ : G ≅ H), fun_like.coe ψ = fun_like.coe φ := ⟨
@@ -258,7 +260,8 @@ def epi_comp [epi_class Φ G H] [epi_class Ψ H K] (ψ : Ψ) (φ : Φ) : G ↠* 
 end⟩
 
 @[to_additive]
-def iso_comp [iso_class Φ G H] [iso_class Ψ H K] (ψ : Ψ) (φ : Φ) : G ≅ K
+def iso_comp [iso_class Φ G H] [iso_class Ψ H K] (ψ : Ψ) (φ : Φ) : G ≅ K :=
+⟨ψ ∘* φ, (mono_comp ψ φ).2, (epi_comp ψ φ).2⟩
 
 -- Common homomorphisms
 
@@ -279,7 +282,8 @@ def inclusion_mono {G : Type*} [group G] (H : subgroup G) : H.carrier ↪* G :=
   exact h
 end⟩
 
--- Isomorphism is an equivalence relation
+-- Isomorphism is an equivalence relation.
+-- Reflexivity and transitivity are handled by iso_self and iso_comp.
 
 @[to_additive]
 noncomputable def iso_symm [iso_class Φ G H] (φ : Φ) : H ≅ G :=
@@ -303,9 +307,83 @@ begin
   apply function.left_inverse_surj_inv
 end⟩
 
-@[to_additive]
-def iso_trans [iso_class Φ G H] [iso_class Ψ H K] (φ : Φ) (ψ : Ψ) : G ≅ K :=
+-- Images and kernels
 
+@[to_additive]
+def image [hom_class Φ G H] (φ : Φ) : subgroup H := {
+  carrier := φ '' set.univ,
+  mul_mem := begin
+    rintros a b ⟨c, hc₁, hc₂⟩ ⟨d, hd₁, hd₂⟩,
+    rw ← hc₂,
+    rw ← hd₂,
+    rw ← map_op,
+    exact ⟨c * d, ⟨set.mem_univ _, rfl⟩⟩
+  end,
+  one_mem := ⟨1, ⟨set.mem_univ _, map_one _⟩⟩,
+  inv_mem := begin
+    rintros a ⟨b, hb₁, hb₂⟩,
+    refine ⟨b⁻¹, ⟨set.mem_univ _, _⟩⟩,
+    rw ← hb₂,
+    rw map_inv
+  end
+}
+
+@[simp, to_additive]
+def image_def [hom_class Φ G H] (φ : Φ) : (image φ).carrier = φ '' set.univ := rfl
+
+@[to_additive]
+def kernel [hom_class Φ G H] (φ : Φ) : subgroup G := {
+  carrier := {x | φ x = 1},
+  mul_mem := begin
+    intros a b ha hb,
+    dsimp at *,
+    rw map_op,
+    rw ha,
+    rw hb,
+    simp
+  end,
+  one_mem := map_one φ,
+  inv_mem := begin
+    intros a h,
+    dsimp at *,
+    rw map_inv,
+    rw group.inv_eq_iff_inv_eq,
+    rw group.one_inv,
+    exact h.symm
+  end
+}
+
+@[simp, to_additive]
+def kernel_def [hom_class Φ G H] (φ : Φ) : (kernel φ).carrier = {x | φ x = 1} := rfl
+
+-- TODO: reverse direction of all of the following results
+
+@[to_additive]
+lemma surj_of_image_eq_univ [hom_class Φ G H] {φ : Φ} (h : image φ = subgroup.univ) : function.surjective φ :=
+begin
+  intro x,
+  have h₁ : φ '' set.univ = set.univ,
+  { rw ← subgroup.subgroup_ext_iff at h,
+    exact h },
+  have := set.mem_univ x,
+  rw ← h₁ at this,
+  obtain ⟨a, ha₁, ha₂⟩ := this,
+  refine ⟨a, ha₂⟩
+end
+
+@[to_additive]
+lemma inj_of_kernel_trivial [hom_class Φ G H] {φ : Φ} (h : kernel φ = subgroup.trivial) : function.injective φ :=
+begin
+  intros x y h₁,
+  have : φ (x * y⁻¹) = 1,
+  { rw [map_op, map_inv, h₁, mul_right_inv] },
+  rw ← subgroup.subgroup_ext_iff at h,
+  simp at h,
+  rw set.ext_iff at h,
+  have := (h (x * y⁻¹)).mp this,
+  simp at this,
+  rwa ← group.mul_inv_eq_one
+end
 
 end hom
 

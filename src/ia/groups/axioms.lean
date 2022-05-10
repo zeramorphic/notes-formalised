@@ -229,7 +229,7 @@ namespace subgroup
 variables (G : Type u) [group G]
 
 @[to_additive]
-def trivial_subgroup : subgroup G := {
+def trivial {G : Type u} [group G] : subgroup G := {
   carrier := {a | a = 1},
   mul_mem := begin
     dsimp,
@@ -246,6 +246,9 @@ def trivial_subgroup : subgroup G := {
     exact group.one_inv,
   end,
 }
+
+@[simp, to_additive]
+lemma trivial_def : (trivial : subgroup G).carrier = {1} := rfl
 
 variables {H : subgroup G}
 
@@ -330,8 +333,6 @@ end subgroup
 namespace subgroup
 
 variables {G : Type u} [group G]
-
--- TODO: Convert ∃ to Σ' in subgroup definition
 
 @[to_additive]
 def is_subgroup (H : set G) := ∃ K : subgroup G, K.carrier = H
@@ -699,21 +700,23 @@ begin
 end
 
 @[to_additive]
-def top : subgroup G := {
+def univ : subgroup G := {
   carrier := set.univ,
   mul_mem := λ a b ha hb, set.mem_univ _,
   one_mem := set.mem_univ _,
   inv_mem := λ a ha, set.mem_univ _,
 }
-@[to_additive] instance : has_top (subgroup G) := ⟨top⟩
+@[to_additive] instance : has_top (subgroup G) := ⟨univ⟩
 
-@[to_additive]
+@[simp, to_additive]
+lemma univ_def : (univ : subgroup G).carrier = set.univ := rfl
+
+@[simp, to_additive]
 lemma top_def : (⊤ : subgroup G).carrier = set.univ := rfl
 
-@[to_additive] def bot : subgroup G := trivial_subgroup G
-@[to_additive] instance : has_bot (subgroup G) := ⟨bot⟩
+@[to_additive] instance : has_bot (subgroup G) := ⟨trivial⟩
 
-@[to_additive]
+@[simp, to_additive]
 lemma bot_def : (⊥ : subgroup G).carrier = {1} := rfl
 
 @[to_additive]
@@ -755,8 +758,8 @@ instance : complete_lattice (subgroup G) := {
   Inf := Inf,
   Inf_le := subgroup.Inf_le,
   le_Inf := subgroup.le_Inf,
-  top := top,
-  bot := bot,
+  top := univ,
+  bot := trivial,
   le_top := subgroup.le_top,
   bot_le := subgroup.bot_le,
 }
@@ -778,6 +781,17 @@ end
 
 @[simp, to_additive] lemma mul_left_cancel_iff : a * b = a * c ↔ b = c :=
 ⟨mul_left_cancel, λ h, by rw h⟩
+
+@[simp, to_additive] lemma inv_eq_iff_inv_eq : a⁻¹ = b ↔ b⁻¹ = a :=
+begin
+  split,
+  { intro h,
+    rw ← h,
+    rw inv_inv },
+  { intro h,
+    rw ← h,
+    rw inv_inv }
+end
 
 @[to_additive]
 lemma eq_one_of_mul_right_cancel (h : a * b = a) : b = 1 :=
@@ -828,6 +842,14 @@ begin
   { intros h₁ h₂,
     exact h₁ (mul_left_cancel h₂) }
 end
+
+@[to_additive]
+theorem mul_eq_one_iff_eq_inv : a * b = 1 ↔ a = b⁻¹ :=
+⟨eq_inv_of_mul_eq_one, λ h, by rw [h, mul_left_inv]⟩
+
+@[to_additive]
+theorem mul_inv_eq_one : a * b⁻¹ = 1 ↔ a = b :=
+by rw [mul_eq_one_iff_eq_inv, inv_inv]
 
 end group
 
