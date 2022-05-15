@@ -91,10 +91,16 @@ attribute [to_additive] hom.iso_class
 
 infixr ` ↪* `:25 := hom.mono
 infixr ` ↠* `:25 := hom.epi
-infix ` ≅ `:25 := hom.iso
+infix ` ≅* `:25 := hom.iso
 infixr ` ↪+ `:25 := add_hom.add_mono
 infixr ` ↠+ `:25 := hom.add_epi
-infix ` ≅+ `:25 := hom.add_iso
+infix ` ≅+ `:25 := add_hom.iso
+
+@[reducible, to_additive]
+def hom.ex_iso (A B : Type*) [group A] [group B] : Prop := nonempty (A ≅* B)
+
+infix ` ∃≅* `:25 := hom.ex_iso
+infix ` ∃≅+ `:25 := add_hom.ex_iso
 
 namespace hom
 
@@ -147,7 +153,7 @@ instance to_epi_class : epi_class (G ↠* H) G H := {
 }
 
 @[to_additive]
-instance to_iso_class : iso_class (G ≅ H) G H := {
+instance to_iso_class : iso_class (G ≅* H) G H := {
   coe := λ φ, φ.to_fun,
   coe_injective' := begin
     intros f g h,
@@ -192,7 +198,7 @@ instance epi_of_iso [iso_class Φ G H] : epi_class Φ G H := {
 
 @[to_additive]
 def iso_of_mono_surj [mono_class Φ G H] {φ : Φ} (h : function.surjective φ) :
-Σ' (ψ : G ≅ H), fun_like.coe ψ = fun_like.coe φ := ⟨
+Σ' (ψ : G ≅* H), fun_like.coe ψ = fun_like.coe φ := ⟨
   ⟨⟨fun_like.coe φ, λ x y, by simp⟩,
   ⟨by simp, h⟩⟩,
   rfl
@@ -206,7 +212,7 @@ begin
   have : φ (1 * 1) = φ 1 * φ 1 := by rw map_op,
   rw one_mul at this,
   let k := φ 1,
-  exact group.eq_one_of_mul_right_cancel this.symm
+  exact group.eq_one_of_mul_right_cancel _ this.symm
 end
 
 @[to_additive]
@@ -260,7 +266,7 @@ def epi_comp [epi_class Φ G H] [epi_class Ψ H K] (ψ : Ψ) (φ : Φ) : G ↠* 
 end⟩
 
 @[to_additive]
-def iso_comp [iso_class Φ G H] [iso_class Ψ H K] (ψ : Ψ) (φ : Φ) : G ≅ K :=
+def iso_comp [iso_class Φ G H] [iso_class Ψ H K] (ψ : Ψ) (φ : Φ) : G ≅* K :=
 ⟨ψ ∘* φ, (mono_comp ψ φ).2, (epi_comp ψ φ).2⟩
 
 -- Common homomorphisms
@@ -270,7 +276,7 @@ def trivial_hom (G H : Type*) [group G] [group H] : G →* H :=
 ⟨λ x, 1, λ x y, by rw one_mul⟩
 
 @[to_additive]
-def iso_self (G : Type*) [group G] : G ≅ G :=
+def iso_self (G : Type*) [group G] : G ≅* G :=
 ⟨⟨id, λ a b, rfl⟩, λ φ a, id, λ g, ⟨g, rfl⟩⟩
 
 @[to_additive]
@@ -286,7 +292,7 @@ end⟩
 -- Reflexivity and transitivity are handled by iso_self and iso_comp.
 
 @[to_additive]
-noncomputable def iso_symm [iso_class Φ G H] (φ : Φ) : H ≅ G :=
+noncomputable def iso_symm [iso_class Φ G H] (φ : Φ) : H ≅* G :=
 ⟨⟨function.surj_inv (iso_class.bij φ).2,
 begin
   intros x y,
