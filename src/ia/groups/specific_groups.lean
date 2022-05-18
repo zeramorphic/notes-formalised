@@ -194,7 +194,7 @@ begin
       apply add_group.eq_neg_of_add_eq_zero,
       rw ← add_group.nsmul_int_coe,
       rw ← add_group.nsmul_int_coe,
-      rw add_group.neg_nsmul_of_nsmul_neg,
+      rw add_group.neg_nsmul_eq_nsmul_neg,
       rw ← add_group.add_int_nsmul,
       have : (n : ℤ) ∣ ↑((a.val + b.val) % n) + -↑(a.val + b.val),
       { apply int.dvd_of_mod_eq_zero,
@@ -207,7 +207,23 @@ begin
       rw ← add_group.nsmul_nsmul,
       rw add_group.nsmul_int_coe,
       rw add_group.eq_zero_of_order_smul,
-      {  } } }
+      { apply add_group.nsmul_zero_int },
+      { exact h₂ } },
+    { intros a b h,
+      dsimp at h,
+      have : (a.val - b.val) % n = 0,
+      { have : a.val • x + -(b.val • x) = 0 := by { rw h, simp },
+        have : a.val • x + (-b.val : ℤ) • x = 0,
+        { convert this,
+          rw ← add_group.nsmul_int_of_nat x b.val,
+          have := add_group.neg_nsmul_eq_nsmul_neg (int.of_nat b.val) x,
+          rw this,
+          simp },
+        rw ← add_group.nsmul_int_of_nat at this,
+        rw ← add_group.add_int_nsmul at this,
+        rw group.eq_zero_of_order_dvd_int_smul h₂ at this, } } }
 end
+
+#check group.one_pow_nat
 
 end notes

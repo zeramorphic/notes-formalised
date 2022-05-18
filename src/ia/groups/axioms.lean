@@ -1249,7 +1249,7 @@ begin
     apply group.nat_pow_distrib_of_comm h }
 end
 
-@[simp, to_additive]
+@[simp, to_additive add_group.nsmul_zero_int]
 lemma group.one_pow_int {G : Type*} [group G] (n : ℤ) :
 (1 : G) ^ n = 1 :=
 begin
@@ -1274,6 +1274,29 @@ begin
   rw int.neg_neg,
   rw ← group.int_pow_distrib_of_comm,
   simp, simp
+end
+
+@[to_additive]
+lemma group.int_pow_neg_eq_inv_pow {G : Type*} [group G] (n : ℤ) (x : G) :
+x ^ (-n) = x⁻¹ ^ n :=
+begin
+  rw group.inv_int_pow_eq_int_pow_inv,
+  rw group.inv_pow_eq_pow_neg
+end
+
+@[to_additive]
+lemma group.nat_pow_pow {G : Type*} [group G] (m n : ℕ) (x : G) :
+(x ^ m) ^ n = x ^ (m * n) :=
+begin
+  induction n with n hn,
+  { simp },
+  { rw ← nat.add_one,
+    rw nat.left_distrib,
+    rw nat.mul_one,
+    rw group.add_nat_pow,
+    rw group.add_nat_pow,
+    rw hn,
+    simp }
 end
 
 @[to_additive]
@@ -1343,22 +1366,119 @@ begin
   exact (enat.sat_of_find_eq_some h).1
 end
 
-lemma group.eq_one_of_pow_order {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) : x ^ n = 1 :=
-begin
-  rw group.order_def at h,
-  exact (enat.sat_of_find_eq_some h).2
-end
-
 lemma add_group.zero_lt_order {G : Type*} [add_group G] {x : G} {n : ℕ} (h : add_group.order x = enat.some n) : 0 < n :=
 begin
   rw add_group.order_def at h,
   exact (enat.sat_of_find_eq_some h).1
 end
 
+lemma group.zero_lt_order_int {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) : 0 < (n : ℤ) :=
+begin
+  simp,
+  exact group.zero_lt_order h
+end
+
+lemma add_group.zero_lt_order_int {G : Type*} [add_group G] {x : G} {n : ℕ} (h : add_group.order x = enat.some n) : 0 < (n : ℤ) :=
+begin
+  simp,
+  exact add_group.zero_lt_order h
+end
+
+lemma group.zero_ne_order_int {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) : 0 ≠ (n : ℤ) :=
+begin
+  apply ne_of_lt,
+  exact group.zero_lt_order_int h
+end
+
+lemma add_group.zero_ne_order_int {G : Type*} [add_group G] {x : G} {n : ℕ} (h : add_group.order x = enat.some n) : 0 ≠ (n : ℤ) :=
+begin
+  apply ne_of_lt,
+  exact add_group.zero_lt_order_int h
+end
+
+lemma group.eq_one_of_pow_order {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) : x ^ n = 1 :=
+begin
+  rw group.order_def at h,
+  exact (enat.sat_of_find_eq_some h).2
+end
+
 lemma add_group.eq_zero_of_order_smul {G : Type*} [add_group G] {x : G} {n : ℕ} (h : add_group.order x = enat.some n) : n • x = 0 :=
 begin
   rw add_group.order_def at h,
   exact (enat.sat_of_find_eq_some h).2
+end
+
+lemma group.eq_one_of_int_pow_order {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) : x ^ (n : ℤ) = 1 :=
+begin
+  rw group.order_def at h,
+  exact (enat.sat_of_find_eq_some h).2
+end
+
+lemma add_group.eq_zero_of_order_int_smul {G : Type*} [add_group G] {x : G} {n : ℕ} (h : add_group.order x = enat.some n) : (n : ℤ) • x = 0 :=
+begin
+  rw add_group.order_def at h,
+  exact (enat.sat_of_find_eq_some h).2
+end
+
+lemma group.eq_one_of_pow_order_dvd {G : Type*} [group G] {x : G} {n m : ℕ} (h : group.order x = enat.some n) (hm : n ∣ m) : x ^ m = 1 :=
+begin
+  obtain ⟨c, hc⟩ := hm,
+  rw hc,
+  rw ← group.nat_pow_pow,
+  rw group.eq_one_of_pow_order h,
+  simp
+end
+
+lemma group.eq_zero_of_order_dvd_smul {G : Type*} [add_group G] {x : G} {n m : ℕ} (h : add_group.order x = enat.some n) (hm : n ∣ m) : m • x = 0 :=
+begin
+  obtain ⟨c, hc⟩ := hm,
+  rw hc,
+  rw ← add_group.nat_nsmul_nsmul,
+  rw add_group.eq_zero_of_order_smul h,
+  simp
+end
+
+lemma group.order_dvd_of_nat_pow_eq_one {G : Type*} [group G] {x : G} {n m : ℕ} (hord : group.order x = enat.some n) (h : x ^ m = 1) : n ∣ m :=
+begin
+  have small_eq_zero : ∀ k < n, x ^ k = 1 → k = 0,
+  { intros k hk h,
+    by_contradiction ne_zero,
+    unfold group.order at hord,
+    have := enat.find_le (λ n, 0 < n ∧ x ^ n = 1) k ⟨pos_iff_ne_zero.mpr ne_zero, h⟩,
+    rw [hord, enat.some_eq_coe, enat.coe_le_coe] at this,
+    exact nat.lt_le_antisymm hk this },
+  apply nat.dvd_of_mod_eq_zero,
+  have := nat.div_add_mod m n,
+  rw ← this at h,
+  rw group.add_nat_pow at h,
+  rw ← group.nat_pow_pow at h,
+  rw group.eq_one_of_pow_order hord at h,
+  simp at h,
+  exact small_eq_zero _ (nat.mod_lt m (group.zero_lt_order hord)) h
+end
+
+lemma group.eq_one_iff_nat_pow_order_dvd {G : Type*} [group G] {x : G} {n m : ℕ} (h : group.order x = enat.some n) : n ∣ m ↔ x ^ m = 1 :=
+⟨group.eq_one_of_pow_order_dvd h, group.order_dvd_of_nat_pow_eq_one h⟩
+
+lemma group.eq_one_iff_int_pow_order_dvd {G : Type*} [group G] {x : G} {n : ℕ} {m : ℤ} (h : group.order x = enat.some n) : ↑n ∣ m ↔ x ^ m = 1 :=
+begin
+  induction m,
+  { rw int.of_nat_eq_coe,
+    rw int.coe_nat_dvd,
+    dsimp,
+    rw group.eq_one_iff_nat_pow_order_dvd h },
+  { rw int.neg_succ_of_nat_eq,
+    rw ← int.dvd_nat_abs,
+    rw int.coe_nat_dvd,
+    rw int.nat_abs_neg,
+    rw ← int.coe_nat_succ,
+    rw int.nat_abs_of_nat,
+    rw ← group.inv_pow_eq_pow_neg,
+    rw group.inv_eq_iff_inv_eq,
+    rw group.one_inv,
+    rw group.pow_int_coe,
+    rw group.eq_one_iff_nat_pow_order_dvd h,
+    exact comm }
 end
 
 end notes
