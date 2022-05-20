@@ -194,38 +194,6 @@ class add_abelian_group (G : Type u) extends add_group G :=
 
 attribute [to_additive] abelian_group
 
-@[ancestor group]
-class finite_group (G : Type u) extends group G :=
-(hfinite : fintype G)
-
-@[ancestor add_group]
-class finite_add_group (G : Type u) extends add_group G :=
-(hfinite : fintype G)
-
-attribute [to_additive] finite_group
-
-@[ancestor group]
-class infinite_group (G : Type u) extends group G :=
-(hinfinite : infinite G)
-
-@[ancestor add_group]
-class infinite_add_group (G : Type u) extends add_group G :=
-(hinfinite : infinite G)
-
-attribute [to_additive] infinite_group
-
-namespace finite_group
-
-variables (G : Type u) [finite_group G]
-
-@[to_additive]
-def order : ℕ := fintype.sizeof G hfinite
-
-@[to_additive]
-instance : has_sizeof G := ⟨order G⟩
-
-end finite_group
-
 -- Subgroups
 
 structure subgroup (G : Type u) [group G] :=
@@ -360,6 +328,28 @@ def is_subgroup (H : set G) :=
 (∀ {a b : G}, a ∈ H → b ∈ H → a * b ∈ H) ∧
 ((1 : G) ∈ H) ∧
 (∀ {a : G}, a ∈ H → a⁻¹ ∈ H)
+
+@[to_additive]
+def mul_mem_of_is_subgroup {H : set G} (h : is_subgroup H) {a b : G}
+(ha : a ∈ H) (hb : b ∈ H) : a * b ∈ H :=
+begin
+  revert a b ha hb,
+  exact h.1
+end
+
+@[to_additive]
+def one_mem_of_is_subgroup {H : set G} (h : is_subgroup H) : (1 : G) ∈ H :=
+begin
+  exact h.2.1
+end
+
+@[to_additive]
+def inv_mem_of_is_subgroup {H : set G} (h : is_subgroup H) {a : G}
+(ha : a ∈ H) : a⁻¹ ∈ H :=
+begin
+  revert a ha,
+  exact h.2.2
+end
 
 @[to_additive]
 def subgroup_of_is_subgroup {H : set G} (h : is_subgroup H) : Σ' (K : subgroup G), K.carrier = H :=
@@ -611,32 +601,46 @@ end
 
 @[to_additive]
 def generated_subgroup (X : set G) : subgroup G := {
-  carrier := ⋂₀ {Y | X ⊆ Y ∧ ∃ H : subgroup G, Y = H.carrier},
+  carrier := ⋂₀ {Y | X ⊆ Y ∧ is_subgroup Y},
   mul_mem := begin
     simp,
-    intros a b ha hb Y hY H hH,
-    rw hH at *,
-    exact mul_mem H (ha H.carrier hY H rfl) (hb H.carrier hY H rfl)
+    intros a b ha hb Y hY sgY,
+    exact mul_mem_of_is_subgroup sgY (ha Y hY sgY) (hb Y hY sgY)
   end,
   one_mem := begin
     simp,
-    intros Y hY H hH,
-    rw [hH, mem_carrier],
-    apply one_mem
+    intros Y hY sgY,
+    exact one_mem_of_is_subgroup sgY
   end,
   inv_mem := begin
     simp,
-    intros a ha Y hY H hH,
-    rw [hH, mem_carrier],
-    apply inv_mem,
-    rw ← hH,
-    exact ha Y hY H hH
+    intros a ha Y hY sgY,
+    exact inv_mem_of_is_subgroup sgY (ha Y hY sgY),
   end,
 }
 
 @[simp, to_additive]
-lemma generated_subgroup_def (X : set G)
-: (generated_subgroup X).carrier = ⋂₀ {Y | X ⊆ Y ∧ ∃ H : subgroup G, Y = H.carrier} := rfl
+lemma generated_subgroup_def (X : set G) :
+(generated_subgroup X).carrier = ⋂₀ {Y | X ⊆ Y ∧ is_subgroup Y} := rfl
+
+@[simp, to_additive]
+lemma generated_subgroup_def' (X : set G) (x : G) :
+x ∈ generated_subgroup X ↔ x ∈ ⋂₀ {Y | X ⊆ Y ∧ is_subgroup Y} :=
+begin
+  rw ← subgroup.mem_carrier,
+  rw generated_subgroup_def
+end
+
+notation `⟪` X `⟫` := generated_subgroup X
+
+@[simp, to_additive]
+lemma subseteq_generated_subgroup (S : set G) : S ⊆ ⟪S⟫ :=
+begin
+  intros s hs X hX,
+  simp at hX,
+  obtain ⟨hX₁, hX₂⟩ := hX,
+  exact hX₁ hs
+end
 
 @[simp, to_additive]
 lemma le_generated_subgroup (S : set G) (H : subgroup G) (h : ↑H ⊆ S) : H ≤ generated_subgroup S :=
@@ -656,10 +660,8 @@ begin
   simp,
   split,
   { intro h,
-    exact h H.carrier subset_rfl H rfl },
-  { intros hx Y hY K hK,
-    rw hK,
-    rw hK at hY,
+    exact h H.carrier subset_rfl (is_subgroup_of_subgroup H) },
+  { intros hx Y hY sgY,
     exact hY hx }
 end
 
@@ -694,7 +696,7 @@ begin
   rw generated_subgroup_def,
   intros Y hY,
   simp at hY,
-  exact hY L.carrier ((le_def H L).mp hH) ((le_def K L).mp hK) L rfl
+  exact hY L.carrier ((le_def H L).mp hH) ((le_def K L).mp hK) (is_subgroup_of_subgroup L)
 end
 
 @[to_additive]
@@ -724,8 +726,8 @@ begin
   intro a,
   simp,
   intro h',
-  have := h' H.carrier _,
-  { apply this H rfl },
+  have := h' H.carrier _ (is_subgroup_of_subgroup H),
+  { exact this },
   intros Y hY,
   change Y.carrier ⊆ H.carrier,
   rw ← le_def,
@@ -743,6 +745,13 @@ def univ : subgroup G := {
 
 @[simp, to_additive]
 lemma univ_def : (univ : subgroup G).carrier = set.univ := rfl
+
+@[simp, to_additive]
+lemma univ_def' (x : G) : x ∈ (subgroup.univ : subgroup G) :=
+begin
+  rw ← subgroup.mem_carrier,
+  simp
+end
 
 @[simp, to_additive]
 lemma top_def : (⊤ : subgroup G).carrier = set.univ := rfl
@@ -927,6 +936,14 @@ begin
     rw nat.add_succ }
 end
 
+@[to_additive]
+lemma group.sub_nat_pow_of_le {G : Type*} [group G] (m n : ℕ) (x : G) (h : n ≤ m) :
+x ^ (m - n) * x ^ n = x ^ m :=
+begin
+  rw ← group.add_nat_pow,
+  rw nat.sub_add_cancel h
+end
+
 @[simp, to_additive]
 lemma group.one_pow_nat {G : Type*} [group G] (n : ℕ) :
 (1 : G) ^ n = 1 :=
@@ -1105,6 +1122,15 @@ begin
 end
 
 @[to_additive]
+lemma group.sub_int_pow {G : Type*} [group G] (m n : ℤ) (x : G) :
+x ^ (m - n) = x ^ m * (x ^ n)⁻¹ :=
+begin
+  rw group.inv_pow_eq_pow_neg,
+  rw ← group.add_int_pow,
+  rw int.sub_eq_add_neg
+end
+
+@[to_additive]
 lemma group.inv_comm_of_comm {G : Type*} [group G]
 {x y : G} (h : x * y = y * x) : x⁻¹ * y = y * x⁻¹ :=
 begin
@@ -1264,6 +1290,14 @@ begin
     simp }
 end
 
+@[simp, to_additive]
+lemma group.pow_neg_one_eq_inv {G : Type*} [group G] (x : G) :
+x ^ (-1 : ℤ) = x⁻¹ :=
+begin
+  apply group.eq_inv_of_mul_eq_one,
+  simp
+end
+
 @[to_additive]
 lemma group.inv_int_pow_eq_int_pow_inv {G : Type*} [group G] (n : ℤ) (x : G) :
 x⁻¹ ^ n = (x ^ n)⁻¹ :=
@@ -1326,10 +1360,43 @@ begin
       rw group.inv_pow_eq_pow_neg } }
 end
 
-@[protected] noncomputable instance decidable_pow {G : Type*} [group G] (x : G) :=
-classical.dec_pred (λ (n : ℕ), 0 < n ∧ x ^ n = 1)
-@[protected] noncomputable instance decidable_smul {G : Type*} [add_group G] (x : G) :=
-classical.dec_pred (λ (n : ℕ), 0 < n ∧ n • x = 0)
+@[to_additive]
+lemma subgroup.nat_pow_mem {G : Type*} [group G] (H : subgroup G) {x : G} {n : ℕ} (h : x ∈ H) : x ^ n ∈ H :=
+begin
+  induction n with n hn,
+  { simp, exact subgroup.one_mem H },
+  { rw nat.succ_eq_add_one,
+    rw group.add_nat_pow,
+    simp,
+    exact subgroup.mul_mem H hn h }
+end
+
+@[to_additive]
+lemma subgroup.int_pow_mem {G : Type*} [group G] (H : subgroup G) {x : G} {n : ℤ}
+(h : x ∈ H) : x ^ n ∈ H :=
+begin
+  induction n,
+  { simp, apply subgroup.nat_pow_mem, exact h },
+  { induction n with n hn,
+    { rw int.neg_one, rw group.pow_neg_one_eq_inv, exact subgroup.inv_mem H h },
+    { rw int.neg_succ_of_nat_eq at *,
+      simp at *,
+      rw group.add_int_pow,
+      apply subgroup.mul_mem,
+      { simp, exact subgroup.inv_mem H h },
+      { exact hn } } }
+end
+
+noncomputable def decidable_pow {G : Type*} [group G] (x : G) :
+decidable_pred (λ (n : ℕ), 0 < n ∧ x ^ n = 1) :=
+classical.dec_pred _
+noncomputable def decidable_smul {G : Type*} [add_group G] (x : G) :
+decidable_pred (λ (n : ℕ), 0 < n ∧ n • x = 0) :=
+classical.dec_pred _
+
+attribute [to_additive decidable_smul] decidable_pow
+local attribute [instance] decidable_pow
+local attribute [instance] decidable_smul
 
 -- We have to define these two separately because pow and smul take
 -- arguments in a different order.
@@ -1358,68 +1425,42 @@ begin
   exact h
 end
 
--- TODO: How to use to_additive here?
-
+@[to_additive]
 lemma group.zero_lt_order {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) : 0 < n :=
 begin
   rw group.order_def at h,
   exact (enat.sat_of_find_eq_some h).1
 end
 
-lemma add_group.zero_lt_order {G : Type*} [add_group G] {x : G} {n : ℕ} (h : add_group.order x = enat.some n) : 0 < n :=
-begin
-  rw add_group.order_def at h,
-  exact (enat.sat_of_find_eq_some h).1
-end
-
+@[to_additive]
 lemma group.zero_lt_order_int {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) : 0 < (n : ℤ) :=
 begin
   simp,
   exact group.zero_lt_order h
 end
 
-lemma add_group.zero_lt_order_int {G : Type*} [add_group G] {x : G} {n : ℕ} (h : add_group.order x = enat.some n) : 0 < (n : ℤ) :=
-begin
-  simp,
-  exact add_group.zero_lt_order h
-end
-
+@[to_additive]
 lemma group.zero_ne_order_int {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) : 0 ≠ (n : ℤ) :=
 begin
   apply ne_of_lt,
   exact group.zero_lt_order_int h
 end
 
-lemma add_group.zero_ne_order_int {G : Type*} [add_group G] {x : G} {n : ℕ} (h : add_group.order x = enat.some n) : 0 ≠ (n : ℤ) :=
-begin
-  apply ne_of_lt,
-  exact add_group.zero_lt_order_int h
-end
-
+@[to_additive]
 lemma group.eq_one_of_pow_order {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) : x ^ n = 1 :=
 begin
   rw group.order_def at h,
   exact (enat.sat_of_find_eq_some h).2
 end
 
-lemma add_group.eq_zero_of_order_smul {G : Type*} [add_group G] {x : G} {n : ℕ} (h : add_group.order x = enat.some n) : n • x = 0 :=
-begin
-  rw add_group.order_def at h,
-  exact (enat.sat_of_find_eq_some h).2
-end
-
+@[to_additive]
 lemma group.eq_one_of_int_pow_order {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) : x ^ (n : ℤ) = 1 :=
 begin
   rw group.order_def at h,
   exact (enat.sat_of_find_eq_some h).2
 end
 
-lemma add_group.eq_zero_of_order_int_smul {G : Type*} [add_group G] {x : G} {n : ℕ} (h : add_group.order x = enat.some n) : (n : ℤ) • x = 0 :=
-begin
-  rw add_group.order_def at h,
-  exact (enat.sat_of_find_eq_some h).2
-end
-
+@[to_additive]
 lemma group.eq_one_of_pow_order_dvd {G : Type*} [group G] {x : G} {n m : ℕ} (h : group.order x = enat.some n) (hm : n ∣ m) : x ^ m = 1 :=
 begin
   obtain ⟨c, hc⟩ := hm,
@@ -1429,15 +1470,7 @@ begin
   simp
 end
 
-lemma group.eq_zero_of_order_dvd_smul {G : Type*} [add_group G] {x : G} {n m : ℕ} (h : add_group.order x = enat.some n) (hm : n ∣ m) : m • x = 0 :=
-begin
-  obtain ⟨c, hc⟩ := hm,
-  rw hc,
-  rw ← add_group.nat_nsmul_nsmul,
-  rw add_group.eq_zero_of_order_smul h,
-  simp
-end
-
+@[to_additive]
 lemma group.order_dvd_of_nat_pow_eq_one {G : Type*} [group G] {x : G} {n m : ℕ} (hord : group.order x = enat.some n) (h : x ^ m = 1) : n ∣ m :=
 begin
   have small_eq_zero : ∀ k < n, x ^ k = 1 → k = 0,
@@ -1457,10 +1490,12 @@ begin
   exact small_eq_zero _ (nat.mod_lt m (group.zero_lt_order hord)) h
 end
 
+@[to_additive]
 lemma group.eq_one_iff_nat_pow_order_dvd {G : Type*} [group G] {x : G} {n m : ℕ} (h : group.order x = enat.some n) : n ∣ m ↔ x ^ m = 1 :=
 ⟨group.eq_one_of_pow_order_dvd h, group.order_dvd_of_nat_pow_eq_one h⟩
 
-lemma group.eq_one_iff_int_pow_order_dvd {G : Type*} [group G] {x : G} {n : ℕ} {m : ℤ} (h : group.order x = enat.some n) : ↑n ∣ m ↔ x ^ m = 1 :=
+@[to_additive]
+theorem group.eq_one_iff_int_pow_order_dvd {G : Type*} [group G] {x : G} {n : ℕ} {m : ℤ} (h : group.order x = enat.some n) : ↑n ∣ m ↔ x ^ m = 1 :=
 begin
   induction m,
   { rw int.of_nat_eq_coe,
@@ -1480,5 +1515,41 @@ begin
     rw group.eq_one_iff_nat_pow_order_dvd h,
     exact comm }
 end
+
+@[to_additive]
+lemma group.order_finite_of_finite {G : Type*} [group G] [fintype G] (x : G) :
+(group.order x).dom :=
+begin
+  apply enat.find_dom,
+  by_contradiction h,
+  push_neg at h,
+  obtain ⟨r, s, r_ne_s, hrs⟩ := fintype.exists_ne_map_eq_of_infinite (λ (n : ℕ), x ^ n),
+  dsimp at hrs,
+  wlog : r < s,
+  { exact ne.lt_or_lt r_ne_s },
+  have : x ^ (s - r) = 1,
+  { apply group.mul_right_cancel (x ^ r),
+    rw group.sub_nat_pow_of_le,
+    { rw hrs, simp },
+    { exact le_of_lt case } },
+  refine h (s - r) _ this,
+  exact tsub_pos_of_lt case
+end
+
+@[to_additive]
+noncomputable def group.order_of_finite {G : Type*} [group G] [fintype G] (x : G) : ℕ :=
+(group.order x).get (group.order_finite_of_finite x)
+
+@[to_additive]
+lemma group.order_eq_some_order_of_finite {G : Type*} [group G] [fintype G] (x : G) :
+group.order x = enat.some (group.order_of_finite x) :=
+begin
+  unfold group.order_of_finite,
+  rw ← enat.get_eq_iff_eq_some
+end
+
+@[to_additive]
+lemma group.zero_lt_order_finite {G : Type*} [group G] [fintype G] (x : G) : 0 < group.order_of_finite x :=
+group.zero_lt_order (group.order_eq_some_order_of_finite x)
 
 end notes
