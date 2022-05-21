@@ -1395,8 +1395,8 @@ decidable_pred (λ (n : ℕ), 0 < n ∧ n • x = 0) :=
 classical.dec_pred _
 
 attribute [to_additive decidable_smul] decidable_pow
-local attribute [instance] decidable_pow
-local attribute [instance] decidable_smul
+attribute [instance] decidable_pow
+attribute [instance] decidable_smul
 
 -- We have to define these two separately because pow and smul take
 -- arguments in a different order.
@@ -1524,6 +1524,39 @@ begin
 end
 
 @[to_additive]
+lemma group.pow_sub_eq_one_of_pow_eq {G : Type*} [group G] {x : G} (a b : ℤ) :
+x ^ a = x ^ b ↔ x ^ (a - b) = 1 :=
+begin
+  rw int.sub_eq_add_neg,
+  rw group.add_int_pow,
+  rw ← group.mul_right_cancel_iff (x ^ -b),
+  congr',
+  rw ← group.add_int_pow,
+  simp
+end
+
+@[to_additive]
+lemma group.pow_eq_pow_iff_order_dvd_sub {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) (a b : ℤ) :
+↑n ∣ a - b ↔ x ^ a = x ^ b :=
+begin
+  split,
+  { intro g,
+    have := (group.eq_one_iff_int_pow_order_dvd h).mp g,
+    rw ← mul_one (x ^ b),
+    rw ← this,
+    rw ← group.add_int_pow,
+    simp },
+  { intro g,
+    have : x ^ (a - b) = 1,
+    { rw int.sub_eq_add_neg,
+      rw group.add_int_pow,
+      rw g,
+      rw ← group.add_int_pow,
+      simp },
+    exact (group.eq_one_iff_int_pow_order_dvd h).mpr this }
+end
+
+@[to_additive]
 lemma group.order_finite_of_finite {G : Type*} [group G] [fintype G] (x : G) :
 (group.order x).dom :=
 begin
@@ -1574,5 +1607,28 @@ group.zero_ne_order_int (group.order_eq_some_order_of_finite x)
 @[to_additive]
 lemma group.zero_lt_order_finite_int {G : Type*} [group G] [fintype G] (x : G) : 0 < (group.order_of_finite x : ℤ) :=
 group.zero_lt_order_int (group.order_eq_some_order_of_finite x)
+
+@[to_additive]
+lemma group.pow_eq_pow_iff_eq_of_order_infinite {G : Type*} [group G] (x : G) (a b : ℤ) (h : group.order x = ⊤) :
+x ^ a = x ^ b ↔ a = b :=
+begin
+  wlog : b ≤ a,
+  split,
+  { intro g,
+    rw group.pow_sub_eq_one_of_pow_eq at g,
+    have : 0 ≤ a - b,
+    { exact sub_nonneg.mpr case },
+    unfold group.order at h,
+    rw enat.find_eq_top_iff at h,
+    specialize h (a - b).to_nat,
+    simp at h,
+    by_contradiction h',
+    apply h ((ne.symm h').lt_of_le case),
+    rw ← g,
+    rw ← group.pow_int_coe,
+    congr',
+    exact int.to_nat_of_nonneg this },
+  { intro g, congr' }
+end
 
 end notes

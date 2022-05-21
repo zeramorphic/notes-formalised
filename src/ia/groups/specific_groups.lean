@@ -1,5 +1,6 @@
 import ia.groups.hom
 import data.nat.modeq
+import set_theory.cardinal.finite
 
 namespace notes
 
@@ -228,6 +229,8 @@ begin
   exact h.snd
 end
 
+-- TODO: cyclic_group.is_cyclic
+
 -- The generated subgroup from one element has elements
 -- exactly of the form x ^ n for some integer n.
 @[to_additive]
@@ -258,11 +261,94 @@ begin
 end
 
 @[to_additive]
+lemma singleton_generated_subgroup_eq [group G] (x : G) :
+(⟪{x}⟫ : subgroup G).carrier = set.range (λ (n : ℤ), x ^ n) :=
+begin
+  ext,
+  rw subgroup.mem_carrier,
+  rw singleton_generated_subgroup_elements x,
+  simp,
+  simp_rw eq_comm
+end
+
+@[to_additive]
 lemma exists_eq_pow_of_mul_cyclic [group G] (hcyclic : is_mul_cyclic G) (x : G) :
 ∃ (n : ℤ), x = hcyclic.fst ^ n :=
 begin
   rw ← singleton_generated_subgroup_elements hcyclic.fst x,
   simp
+end
+
+@[to_additive]
+lemma singleton_generated_subgroup_card_eq_order [group G] (x : G) :
+enat.card (⟪{x}⟫.carrier : set G) = group.order x :=
+begin
+  rw singleton_generated_subgroup_eq,
+  simp,
+  by_cases order x = ⊤,
+  { rw h,
+    haveI : infinite (set.range (λ (n : ℤ), x ^ n)),
+    { rw set.infinite_coe_iff,
+      apply set.infinite_range_of_injective,
+      intros a b hab,
+      simp at hab,
+      rw group.pow_eq_pow_iff_eq_of_order_infinite _ _ _ h at hab,
+      exact hab },
+    apply enat.card_eq_top_of_infinite },
+  { unfold order at h,
+    have exists_order := mt (enat.find_eq_top_iff _).mpr h,
+    push_neg at exists_order,
+    have order_dom := enat.find_dom _ exists_order,
+    haveI : decidable_eq (set.range (λ (n : ℤ), x ^ n)) := classical.dec_eq _,
+    have order_rw : order x = enat.some ((order x).get order_dom) :=
+      by rw ← enat.get_eq_iff_eq_some,
+    haveI : fintype (set.range (λ (n : ℤ), x ^ n)),
+    { refine ⟨finset.image (λ n, ⟨x ^ n, _⟩)
+        (finset.range ((order x).get order_dom)), _⟩,
+      { refine ⟨n, rfl⟩ },
+      { rintro ⟨y, ⟨k, hk⟩⟩,
+        simp at *,
+        have k_mod_nonneg : 0 ≤ k % ↑((order x).get order_dom),
+        { apply int.mod_nonneg,
+          symmetry,
+          refine group.zero_ne_order_int order_rw },
+        refine ⟨(k % (order x).get order_dom).to_nat, _, _⟩,
+        { rw ← int.coe_nat_lt,
+          rw int.to_nat_of_nonneg k_mod_nonneg,
+          { apply int.mod_lt_of_pos,
+            exact group.zero_lt_order_int order_rw } },
+        { rw ← hk,
+          dsimp,
+          rw ← group.pow_int_coe,
+          rw ← group.pow_eq_pow_iff_order_dvd_sub order_rw,
+          rw int.to_nat_of_nonneg k_mod_nonneg,
+          rw int.dvd_iff_mod_eq_zero,
+          rw int.sub_mod,
+          simp } } },
+    sorry }
+end
+
+@[to_additive]
+lemma mul_generator_order_eq_card_of_finite [group G] [fintype G] (h : is_mul_cyclic G) :
+group.order_of_finite h.fst = nat.card G :=
+begin
+  unfold group.order_of_finite,
+
+end
+
+@[to_additive]
+lemma mul_generator_infinite_order_of_infinite [group G] [infinite G] (h : is_mul_cyclic G) :
+group.order h.fst = ⊤ :=
+begin
+
+end
+
+@[to_additive]
+lemma mul_generator_order_eq_group_order [group G] (h : is_mul_cyclic G) :
+group.order h.fst = enat.card G :=
+begin
+  by_cases enat.card G = ⊤,
+  {  }
 end
 
 noncomputable def iso_cyclic_of_is_cyclic_of_finite [add_group G] [fintype G] (h : is_add_cyclic G) :
@@ -330,6 +416,19 @@ begin
       { apply int.mod_nonneg,
         exact (add_group.zero_ne_order_finite_int x).symm } },
     rw this }
+end
+
+-- Infinite cyclic groups
+
+def iso_int_of_is_cyclic_of_infinite [add_group G] [infinite G] (h : is_add_cyclic G) : ℤ ≅+ G :=
+begin
+  let x := h.fst,
+  refine ⟨⟨(• x), _⟩, _, _⟩,
+  { intros a b,
+    rw add_group.add_int_nsmul },
+  { intros a b hab,
+    simp at hab,
+     }
 end
 
 theorem iso_cyclic_or_int_of_is_add_cyclic [add_group G] (h : is_add_cyclic G) :
