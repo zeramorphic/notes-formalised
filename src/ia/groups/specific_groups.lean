@@ -123,8 +123,25 @@ begin
 end
 
 @[simp]
-lemma cyclic_add_def {n : ℕ} {n_pos : 0 < n} (a b : cyclic_group n n_pos) :
+lemma cyclic_group.add_def {n : ℕ} {n_pos : 0 < n} (a b : cyclic_group n n_pos) :
 (a + b).val = (a.val + b.val) % n := rfl
+
+lemma cyclic_group.val_eq_mod_of_mod_eq {n : ℕ} {n_pos : 0 < n} {a : cyclic_group n n_pos} {b : ℕ}
+(h : a.val ≡ b [MOD n]) : a.val = b % n :=
+begin
+  unfold nat.modeq at h,
+  rw ← h,
+  symmetry,
+  apply nat.mod_eq_of_lt,
+  exact a.property
+end
+
+lemma cyclic_group.val_eq_of_lt_of_mod_eq {n : ℕ} {n_pos : 0 < n} {a : cyclic_group n n_pos} {b : ℕ}
+(h : a.val ≡ b [MOD n]) (hlt : b < n) : a.val = b :=
+begin
+  rw ← nat.mod_eq_of_lt hlt,
+  exact cyclic_group.val_eq_mod_of_mod_eq h
+end
 
 instance {n : ℕ} {n_pos : 0 < n} : add_semigroup (cyclic_group n n_pos) := {
   add_assoc := begin
@@ -248,14 +265,14 @@ begin
   simp
 end
 
-def iso_cyclic_of_is_cyclic_of_finite [add_group G] [fintype G] (h : is_add_cyclic G) :
+noncomputable def iso_cyclic_of_is_cyclic_of_finite [add_group G] [fintype G] (h : is_add_cyclic G) :
 cyclic_group (add_group.order_of_finite h.fst) (add_group.zero_lt_order_finite h.fst) ≅+ G :=
 begin
   let x := h.fst,
   let n := add_group.order_of_finite h.fst,
   refine ⟨⟨λ k, k.val • x, _⟩, _, _⟩,
   { intros a b,
-    rw cyclic_add_def,
+    rw cyclic_group.add_def,
     rw ← add_group.add_nat_nsmul,
     rw ← add_group.neg_neg ((a.val + b.val) • x),
     apply add_group.eq_neg_of_add_eq_zero,
@@ -290,16 +307,29 @@ begin
   { intro y,
     dsimp,
     obtain ⟨k, hk⟩ := exists_eq_nsmul_of_add_cyclic h y,
-    refine ⟨k • 1, _⟩,
-    rw hk,
-    apply add_group.eq_of_add_neg_eq_zero,
-    rw add_group.neg_nsmul_eq_nsmul_neg,
-    change (k • (1 : cyclic_group _ _)).val • x + -k • x = 0,
-    rw ← add_group.nsmul_int_coe,
-    rw ← add_group.add_int_nsmul,
-    rw ← add_group.eq_zero_iff_int_nsmul_order_dvd (add_group.order_eq_some_order_of_finite x),
-    change ↑n ∣ ↑((k • 1 : cyclic_group _ _).val) + -k,
-     }
+    have : y = (int.to_nat (k % n)) • h.fst,
+    { rw hk,
+      apply add_group.eq_of_add_neg_eq_zero,
+      rw ← add_group.nsmul_int_coe,
+      rw add_group.neg_nsmul_eq_nsmul_neg,
+      rw ← add_group.add_int_nsmul,
+      rw ← add_group.eq_zero_iff_int_nsmul_order_dvd (add_group.order_eq_some_order_of_finite x),
+      change ↑n ∣ k + -↑((k % ↑n).to_nat),
+      rw int.dvd_iff_mod_eq_zero,
+      rw ← int.sub_eq_add_neg,
+      rw int.sub_mod,
+      rw int.to_nat_of_nonneg,
+      simp,
+      apply int.mod_nonneg,
+      exact (add_group.zero_ne_order_finite_int x).symm },
+    refine ⟨⟨int.to_nat (k % n), _⟩, _⟩,
+    { apply int.lt_of_coe_nat_lt_coe_nat,
+      rw int.to_nat_of_nonneg,
+      { apply int.mod_lt_of_pos,
+        exact add_group.zero_lt_order_finite_int x },
+      { apply int.mod_nonneg,
+        exact (add_group.zero_ne_order_finite_int x).symm } },
+    rw this }
 end
 
 theorem iso_cyclic_or_int_of_is_add_cyclic [add_group G] (h : is_add_cyclic G) :

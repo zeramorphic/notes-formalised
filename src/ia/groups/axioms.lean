@@ -1440,6 +1440,13 @@ begin
 end
 
 @[to_additive]
+lemma group.zero_ne_order {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) : 0 ≠ n :=
+begin
+  apply ne_of_lt,
+  exact group.zero_lt_order h
+end
+
+@[to_additive]
 lemma group.zero_ne_order_int {G : Type*} [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) : 0 ≠ (n : ℤ) :=
 begin
   apply ne_of_lt,
@@ -1541,6 +1548,10 @@ noncomputable def group.order_of_finite {G : Type*} [group G] [fintype G] (x : G
 (group.order x).get (group.order_finite_of_finite x)
 
 @[to_additive]
+lemma group.order_of_finite_def {G : Type*} [group G] [fintype G] (x : G) :
+group.order_of_finite x = (group.order x).get (group.order_finite_of_finite x) := rfl
+
+@[to_additive]
 lemma group.order_eq_some_order_of_finite {G : Type*} [group G] [fintype G] (x : G) :
 group.order x = enat.some (group.order_of_finite x) :=
 begin
@@ -1549,7 +1560,19 @@ begin
 end
 
 @[to_additive]
+lemma group.zero_ne_order_finite {G : Type*} [group G] [fintype G] (x : G) : 0 ≠ group.order_of_finite x :=
+group.zero_ne_order (group.order_eq_some_order_of_finite x)
+
+@[to_additive]
 lemma group.zero_lt_order_finite {G : Type*} [group G] [fintype G] (x : G) : 0 < group.order_of_finite x :=
 group.zero_lt_order (group.order_eq_some_order_of_finite x)
+
+@[to_additive]
+lemma group.zero_ne_order_finite_int {G : Type*} [group G] [fintype G] (x : G) : 0 ≠ (group.order_of_finite x : ℤ) :=
+group.zero_ne_order_int (group.order_eq_some_order_of_finite x)
+
+@[to_additive]
+lemma group.zero_lt_order_finite_int {G : Type*} [group G] [fintype G] (x : G) : 0 < (group.order_of_finite x : ℤ) :=
+group.zero_lt_order_int (group.order_eq_some_order_of_finite x)
 
 end notes
