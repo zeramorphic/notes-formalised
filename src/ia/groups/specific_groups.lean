@@ -517,20 +517,32 @@ begin
     rw add_group.add_int_nsmul },
   { intros a b hab,
     simp at hab,
-     }
+    have := add_generator_infinite_order_of_infinite h,
+    have := add_group.nsmul_eq_nsmul_iff_eq_of_infinite_order this a b,
+    exact this.mp hab },
+  { intro y,
+    simp,
+    have := singleton_generated_add_subgroup_elements x y,
+    have h_snd : _ = _ := h.snd,
+    rw h_snd at this,
+    simp at this,
+    obtain ⟨n, hn⟩ := this,
+    refine ⟨n, hn.symm⟩ }
 end
 
 theorem iso_cyclic_or_int_of_is_add_cyclic [add_group G] (h : is_add_cyclic G) :
 (∃ n n_pos, cyclic_group n n_pos ∃≅+ G) ∨ (ℤ ∃≅+ G) :=
 begin
-  obtain ⟨x, hx⟩ := h,
-  rcases part.eq_none_or_eq_some (add_group.order x) with h₁ | ⟨n, h₂⟩,
-  { right,
-    sorry },
+  rcases fintype_or_infinite G,
   { left,
-    sorry }
+    haveI := val,
+    obtain ⟨x, hx⟩ := h,
+    refine ⟨add_group.order_of_finite x, add_group.zero_lt_order_finite _, _⟩,
+    split,
+    apply iso_cyclic_of_is_cyclic_of_finite ⟨x, hx⟩ },
+  { right,
+    split,
+    apply @iso_int_of_is_cyclic_of_infinite _ _ val h },
 end
-
-#check group.one_pow_nat
 
 end notes

@@ -1557,6 +1557,63 @@ begin
 end
 
 @[to_additive]
+lemma group.pow_eq_one_iff_zero_of_infinite_order {G : Type*} [group G] {x : G} (h : group.order x = ⊤) (a : ℕ) :
+x ^ a = 1 ↔ a = 0 :=
+begin
+  split,
+  { intro ha,
+    unfold group.order at h,
+    rw enat.find_eq_top_iff at h,
+    specialize h a,
+    have := nat.eq_zero_or_pos a,
+    tauto },
+  { intro ha, rw ha, simp }
+end
+
+@[to_additive]
+lemma group.int_pow_eq_one_iff_zero_of_infinite_order {G : Type*} [group G] {x : G} (h : group.order x = ⊤) (a : ℤ) :
+x ^ a = 1 ↔ a = 0 :=
+begin
+  split,
+  { intro ha,
+    by_cases nonneg : 0 ≤ a,
+    { rw ← int.to_nat_of_nonneg nonneg at ha,
+      rw group.pow_int_coe at ha,
+      rw group.pow_eq_one_iff_zero_of_infinite_order h at ha,
+      rw int.to_nat_eq_zero at ha,
+      exact le_antisymm ha nonneg },
+    { have ha' : x ^ (-a) = 1,
+      { rw ← group.one_inv,
+        apply group.eq_inv_of_mul_eq_one,
+        rw ← ha,
+        rw ← group.add_int_pow,
+        simp,
+        exact ha.symm },
+      push_neg at nonneg,
+      have nonneg' : 0 < -a := lt_neg.mp nonneg,
+      rw ← int.to_nat_of_nonneg (le_of_lt nonneg') at ha',
+      rw group.pow_int_coe at ha',
+      rw group.pow_eq_one_iff_zero_of_infinite_order h at ha',
+      rw int.to_nat_eq_zero at ha',
+      have := le_antisymm ha' (le_of_lt nonneg'),
+      rw ← int.neg_neg 0 at this,
+      exact neg_inj.mp this } },
+  { intro ha, rw ha, simp }
+end
+
+@[to_additive]
+lemma group.pow_eq_pow_iff_eq_of_infinite_order {G : Type*} [group G] {x : G} (h : group.order x = ⊤) (a b : ℤ) :
+x ^ a = x ^ b ↔ a = b :=
+begin
+  split,
+  { intro hab,
+    rw group.pow_sub_eq_one_of_pow_eq at hab,
+    rw group.int_pow_eq_one_iff_zero_of_infinite_order h at hab,
+    exact sub_eq_zero.mp hab },
+  { intro hab, rw hab }
+end
+
+@[to_additive]
 lemma group.order_finite_of_finite {G : Type*} [group G] [fintype G] (x : G) :
 (group.order x).dom :=
 begin
