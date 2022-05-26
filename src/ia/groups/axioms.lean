@@ -8,9 +8,9 @@ universe u
 -- Keep everything namespaced to avoid name clashes.
 namespace notes
 
-def int.neg_one : -[1+ 0] = -1 := rfl
+lemma int.neg_one : -[1+ 0] = -1 := rfl
 
-def int.pred_neg_succ_of_nat (n : ℕ) : -[1+ n + 1] = -[1+ n] - 1 :=
+lemma int.pred_neg_succ_of_nat (n : ℕ) : -[1+ n + 1] = -[1+ n] - 1 :=
 begin
   rw [
     int.neg_succ_of_nat_eq, int.neg_succ_of_nat_eq,
@@ -1628,7 +1628,7 @@ begin
     rw ← group.pow_int_coe,
     congr',
     exact int.to_nat_of_nonneg this },
-  { intro g, congr' }
+  { intro g, rw g }
 end
 
 end notes

@@ -272,6 +272,61 @@ begin
 end
 
 @[to_additive]
+lemma pow_injective_of_order_finite [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) :
+function.injective (λ (m : {k // k < n}), x ^ m.val) :=
+begin
+  intros a b h₁,
+  ext,
+  dsimp at h₁,
+  rw ← group.pow_int_coe at h₁,
+  rw ← group.pow_int_coe at h₁,
+  rw ← group.pow_eq_pow_iff_order_dvd_sub h at h₁,
+  rw int.dvd_iff_mod_eq_zero at h₁,
+  rw ← int.mod_eq_mod_iff_mod_sub_eq_zero at h₁,
+  rw int.mod_eq_of_lt at h₁,
+  rw int.mod_eq_of_lt at h₁,
+  rw ← int.coe_nat_eq_coe_nat_iff,
+  exact h₁,
+  { rw ← int.of_nat_eq_coe, exact int.zero_le_of_nat _ },
+  { exact int.coe_nat_lt_coe_nat_of_lt b.property },
+  { rw ← int.of_nat_eq_coe, exact int.zero_le_of_nat _ },
+  { exact int.coe_nat_lt_coe_nat_of_lt a.property }
+end
+
+@[to_additive]
+lemma singleton_generated_subgroup_eq_finite [group G] {x : G} {n : ℕ} (h : group.order x = enat.some n) :
+(⟪{x}⟫.carrier : set G) = finset.map ⟨(λ (m : {k : ℕ // k < n}), x ^ m.val), pow_injective_of_order_finite h⟩ (finset.fin_range n) :=
+begin
+  rw singleton_generated_subgroup_eq,
+  ext y,
+  simp,
+  split,
+  { rintro ⟨p, hp⟩,
+    refine ⟨int.nat_mod p n, _, _⟩,
+    { unfold int.nat_mod,
+      rw ← int.to_nat_coe_nat n,
+      rw int.to_nat_lt_to_nat,
+      simp,
+      apply int.mod_lt_of_pos,
+      exact group.zero_lt_order_int h,
+      exact group.zero_lt_order_int h, },
+    { rw ← hp,
+      rw ← group.pow_int_coe,
+      rw ← group.pow_eq_pow_iff_order_dvd_sub h,
+      rw int.dvd_iff_mod_eq_zero,
+      rw ← int.mod_eq_mod_iff_mod_sub_eq_zero,
+      unfold int.nat_mod,
+      rw int.to_nat_of_nonneg _,
+      { simp },
+      apply int.mod_nonneg,
+      exact (group.zero_ne_order_int h).symm } },
+  { rintro ⟨p, hp₁, hp₂⟩,
+    refine ⟨↑p, _⟩,
+    rw ← hp₂,
+    simp }
+end
+
+@[to_additive]
 lemma exists_eq_pow_of_mul_cyclic [group G] (hcyclic : is_mul_cyclic G) (x : G) :
 ∃ (n : ℤ), x = hcyclic.fst ^ n :=
 begin
@@ -280,7 +335,7 @@ begin
 end
 
 @[to_additive]
-lemma singleton_generated_subgroup_card_eq_order [group G] (x : G) :
+theorem singleton_generated_subgroup_card_eq_order [group G] (x : G) :
 enat.card (⟪{x}⟫.carrier : set G) = group.order x :=
 begin
   rw singleton_generated_subgroup_eq,
@@ -299,33 +354,14 @@ begin
     have exists_order := mt (enat.find_eq_top_iff _).mpr h,
     push_neg at exists_order,
     have order_dom := enat.find_dom _ exists_order,
-    haveI : decidable_eq (set.range (λ (n : ℤ), x ^ n)) := classical.dec_eq _,
-    have order_rw : order x = enat.some ((order x).get order_dom) :=
-      by rw ← enat.get_eq_iff_eq_some,
-    haveI : fintype (set.range (λ (n : ℤ), x ^ n)),
-    { refine ⟨finset.image (λ n, ⟨x ^ n, _⟩)
-        (finset.range ((order x).get order_dom)), _⟩,
-      { refine ⟨n, rfl⟩ },
-      { rintro ⟨y, ⟨k, hk⟩⟩,
-        simp at *,
-        have k_mod_nonneg : 0 ≤ k % ↑((order x).get order_dom),
-        { apply int.mod_nonneg,
-          symmetry,
-          refine group.zero_ne_order_int order_rw },
-        refine ⟨(k % (order x).get order_dom).to_nat, _, _⟩,
-        { rw ← int.coe_nat_lt,
-          rw int.to_nat_of_nonneg k_mod_nonneg,
-          { apply int.mod_lt_of_pos,
-            exact group.zero_lt_order_int order_rw } },
-        { rw ← hk,
-          dsimp,
-          rw ← group.pow_int_coe,
-          rw ← group.pow_eq_pow_iff_order_dvd_sub order_rw,
-          rw int.to_nat_of_nonneg k_mod_nonneg,
-          rw int.dvd_iff_mod_eq_zero,
-          rw int.sub_mod,
-          simp } } },
-    sorry }
+    let o := (order x).get order_dom,
+    rw ← singleton_generated_subgroup_eq,
+    have order_rw : order x = enat.some o := by rw ← enat.get_eq_iff_eq_some,
+    rw singleton_generated_subgroup_eq_finite order_rw,
+    rw enat.card_eq_coe_fintype_card,
+    rw order_rw,
+    rw enat.some_eq_coe,
+    simp }
 end
 
 @[to_additive]
@@ -333,22 +369,75 @@ lemma mul_generator_order_eq_card_of_finite [group G] [fintype G] (h : is_mul_cy
 group.order_of_finite h.fst = nat.card G :=
 begin
   unfold group.order_of_finite,
-
+  have := singleton_generated_subgroup_card_eq_order h.fst,
+  have h_snd : ⟪{h.fst}⟫ = (subgroup.univ : subgroup G) := h.snd,
+  rw h_snd at this,
+  simp at this ⊢,
+  rw enat.get_eq_iff_eq_coe,
+  rw ← this,
+  simp,
+  rw fintype.card_eq,
+  refine ⟨_⟩,
+  apply equiv.subtype_univ_equiv,
+  simp
 end
 
 @[to_additive]
 lemma mul_generator_infinite_order_of_infinite [group G] [infinite G] (h : is_mul_cyclic G) :
 group.order h.fst = ⊤ :=
 begin
-
+  unfold order,
+  rw enat.find_eq_top_iff,
+  intro n,
+  apply nat.case_strong_induction_on n; clear n,
+  { simp },
+  rintros n hn₁ hn₂,
+  have lt_find := enat.lt_find (λ m, 0 < m ∧ h.fst ^ m = 1) n hn₁,
+  have find_le := enat.find_le (λ m, 0 < m ∧ h.fst ^ m = 1) n.succ hn₂,
+  have eq_order : ↑(n.succ) = enat.find (λ m, 0 < m ∧ h.fst ^ m = 1),
+  { have := enat.add_one_le_of_lt lt_find,
+    simp at find_le ⊢,
+    exact le_antisymm this find_le },
+  change ↑(n.succ) = group.order h.fst at eq_order,
+  rw ← enat.some_eq_coe at eq_order,
+  have := singleton_generated_subgroup_eq_finite eq_order.symm,
+  have h_snd : ⟪{h.fst}⟫ = _ := h.snd,
+  rw h_snd at this,
+  refine @fintype.false G _ (set.fintype_of_univ_finite _),
+  rw subgroup.univ_def at this,
+  rw this,
+  simp,
+  refine set.finite.image _ _,
+  rw finset.coe_fin_range,
+  exact @set.finite_univ _ (fin.fintype _)
 end
 
 @[to_additive]
-lemma mul_generator_order_eq_group_order [group G] (h : is_mul_cyclic G) :
+theorem mul_generator_order_eq_group_order [group G] (h : is_mul_cyclic G) :
 group.order h.fst = enat.card G :=
 begin
-  by_cases enat.card G = ⊤,
-  {  }
+  by_cases htop : enat.card G = ⊤,
+  { rw htop,
+    haveI : infinite G,
+    { split, intro h,
+      rw @enat.card_eq_coe_fintype_card _ h at htop,
+      exact enat.coe_ne_top _ htop },
+    apply mul_generator_infinite_order_of_infinite },
+  { haveI : fintype G,
+    { apply fintype_of_not_infinite,
+      intro inf,
+      exact htop (@enat.card_eq_top_of_infinite _ inf) },
+    change _ ≠ ⊤ at htop,
+    rw enat.ne_top_iff at htop,
+    obtain ⟨n, hn⟩ := htop,
+    rw hn,
+    rw enat.card_eq_coe_fintype_card at hn,
+    have := mul_generator_order_eq_card_of_finite h,
+    rw nat.card_eq_fintype_card at this,
+    rw ← this at hn,
+    rw ← hn,
+    unfold order_of_finite,
+    simp }
 end
 
 noncomputable def iso_cyclic_of_is_cyclic_of_finite [add_group G] [fintype G] (h : is_add_cyclic G) :
